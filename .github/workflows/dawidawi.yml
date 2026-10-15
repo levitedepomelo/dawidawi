@@ -104,7 +104,8 @@ jobs:
           # La primera escena siembra la colección con el pipeline real (8 criaturas).
           run_scene collection 45; shot 01-coleccion
           run_scene title 4;       shot 00-titulo
-          run_scene detail 8;      shot 02-ficha
+          run_scene detail 12;     shot 02-ficha
+          sleep 10;                shot 02-ficha-b
           run_scene stats 5;       shot 03-stats
           run_scene settings 4;    shot 04-ajustes
           run_scene capture 4;     shot 05-camara
@@ -123,10 +124,12 @@ jobs:
           run_scene collection 6;  shot 08-coleccion-final
           ls -la out/screenshots
 
-      - name: Collect crash reports
+      - name: Collect crash reports and app log
         if: always()
         run: |
           mkdir -p out/crashes
+          xcrun simctl spawn "$UDID" log show --last 15m --style compact             --predicate 'process == "DawiDawi" AND (messageType == error OR messageType == fault)'             > out/crashes/app-log.txt 2>&1 || true
+          tail -50 out/crashes/app-log.txt || true
           find ~/Library/Logs/DiagnosticReports -name 'DawiDawi*' -exec cp {} out/crashes/ \; 2>/dev/null || true
           ls -la out/crashes
 

@@ -55,7 +55,8 @@ enum FigureBuilder {
         func crop(_ x: Int, _ y: Int, _ w: Int, _ h: Int) -> CGImage {
             let rx = max(minX, min(x, maxX - 1)), ry = max(minY, min(y, maxY - 1))
             let rw = max(2, min(w, maxX + 1 - rx)), rh = max(2, min(h, maxY + 1 - ry))
-            return opaque.cropping(to: CGRect(x: rx, y: ry, width: rw, height: rh)) ?? opaque
+            let piece = opaque.cropping(to: CGRect(x: rx, y: ry, width: rw, height: rh)) ?? opaque
+            return autoLevels(piece) ?? piece
         }
 
         let crops: Crops
@@ -200,6 +201,30 @@ enum FigureBuilder {
             height = legH + bodyH - 0.04 + hh * (hasEars ? 1.32 : 1.0)
         }
         return Figure(node: root, width: width, height: height, triangleCount: tris)
+    }
+
+    /// Estira el contraste de cada recorte (percentiles 4–96 %) para que los animales oscuros
+    /// o muy claros sigan mostrando sus rasgos en la textura low-res.
+    private static func autoLevels(_ image: CGImage) -> CGImage? {
+        guard var buf = PixelBuffer(cgImage: image) else { return nil }
+        var lum: [Double] = []
+        lum.reserveCapacity(buf.width * buf.height)
+        for i in stride(from: 0, to: buf.data.count, by: 4) where buf.data[i + 3] > 0 {
+            lum.append(0.299 * Double(buf.data[i]) + 0.587 * Double(buf.data[i + 1]) + 0.114 * Double(buf.data[i + 2]))
+        }
+        guard lum.count > 8 else { return image }
+        lum.sort()
+        let lo = lum[lum.count * 4 / 100], hi = lum[lum.count * 96 / 100]
+        guard hi - lo > 8 else { return image }
+        let targetLo = 22.0, targetHi = 238.0
+        let gain = (targetHi - targetLo) / (hi - lo)
+        for i in stride(from: 0, to: buf.data.count, by: 4) where buf.data[i + 3] > 0 {
+            for c in 0..<3 {
+                let v = (Double(buf.data[i + c]) - lo) * gain + targetLo
+                buf.data[i + c] = UInt8(max(0, min(255, v)))
+            }
+        }
+        return buf.makeCGImage()
     }
 
     // MARK: - Materiales
