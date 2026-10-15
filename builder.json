@@ -1,0 +1,22 @@
+{
+  "project": "dawidawi",
+  "platform": "ios",
+  "github": {
+    "owner": "levitedepomelo",
+    "repo": "dawidawi"
+  },
+  "provider": "github",
+  "codemagic": {},
+  "bitrise": {},
+  "ios": {
+    "path": "DawiDawi",
+    "scheme": "DawiDawi",
+    "bundleId": "com.dawidawi.app"
+  },
+  "flutter": {
+    "watch": {}
+  },
+  "reactNative": {},
+  "kmp": {},
+  "mobai": {}
+}
