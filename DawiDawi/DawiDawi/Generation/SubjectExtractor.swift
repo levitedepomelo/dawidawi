@@ -8,10 +8,12 @@ enum SubjectExtractor {
     static let ciContext = CIContext(options: [.cacheIntermediates: false])
 
     /// Devuelve una imagen RGBA con el fondo transparente, recortada al sujeto.
-    /// Si Vision no encuentra un sujeto (o en el simulador), usa un recorte central ovalado.
+    /// Si Vision no encuentra un sujeto (o en el simulador), separa figura y fondo por color;
+    /// como último recurso, un recorte central ovalado.
     static func extractSubject(from image: UIImage) -> CGImage? {
         guard let cg = image.cgImage else { return nil }
         if let lifted = liftWithVision(cg) { return lifted }
+        if let segmented = ColorSegmenter.cutout(cg) { return segmented }
         return ovalCrop(cg)
     }
 

@@ -105,7 +105,7 @@ struct RetroTabBar: View {
         .padding(.top, 6)
         .background(
             ZStack(alignment: .top) {
-                Retro.night.opacity(0.96)
+                Retro.night
                 Rectangle().fill(Retro.cream).frame(height: 3)
                 Rectangle().fill(Retro.magenta.opacity(0.6)).frame(height: 2).offset(y: 3)
             }

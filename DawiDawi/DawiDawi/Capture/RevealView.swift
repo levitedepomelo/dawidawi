@@ -249,9 +249,19 @@ struct RevealView: View {
 
 // MARK: - Cápsula
 
+/// "Dawi-cristal": gema low-poly facetada con un núcleo que brilla con el color de la rareza.
 struct CapsuleOrb: View {
     let glow: Color
     let intensity: Double
+
+    /// Vértices del contorno (unidades 0…1): hexágono alargado tipo cristal.
+    private static let outline: [CGPoint] = [
+        CGPoint(x: 0.5, y: 0.0), CGPoint(x: 0.86, y: 0.22), CGPoint(x: 0.92, y: 0.6),
+        CGPoint(x: 0.5, y: 1.0), CGPoint(x: 0.08, y: 0.6), CGPoint(x: 0.14, y: 0.22)
+    ]
+    private static let core = CGPoint(x: 0.47, y: 0.5)
+    /// Tonos por faceta: luz desde arriba a la izquierda, como un modelo vertex-lit.
+    private static let shades: [Double] = [1.0, 0.72, 0.5, 0.38, 0.62, 0.86]
 
     var body: some View {
         ZStack {
@@ -260,25 +270,51 @@ struct CapsuleOrb: View {
                                      startRadius: 10, endRadius: 140))
                 .scaleEffect(1.6 + intensity * 0.6)
                 .blendMode(.screen)
-            // Mitad superior
-            LowPolyCircle(sides: 12)
-                .fill(LinearGradient(colors: [Retro.magenta, Color(red: 0.55, green: 0.05, blue: 0.3)],
-                                     startPoint: .top, endPoint: .bottom))
-                .mask { VStack(spacing: 0) { Rectangle(); Color.clear } }
-            // Mitad inferior
-            LowPolyCircle(sides: 12)
-                .fill(LinearGradient(colors: [Retro.cream, Color(white: 0.6)], startPoint: .top, endPoint: .bottom))
-                .mask { VStack(spacing: 0) { Color.clear; Rectangle() } }
-            Rectangle().fill(Retro.night).frame(height: 12)
-            LowPolyCircle(sides: 8).fill(Retro.night).frame(width: 46, height: 46)
-            LowPolyCircle(sides: 8).fill(glow).frame(width: 30, height: 30)
-                .shadow(color: glow, radius: 10)
-            LowPolyCircle(sides: 12).stroke(Retro.night, lineWidth: 5)
-            // Brillo especular "pintado"
-            Rectangle().fill(.white.opacity(0.7)).frame(width: 14, height: 10).offset(x: -36, y: -40)
+            Canvas { ctx, size in
+                func pt(_ p: CGPoint) -> CGPoint { CGPoint(x: p.x * size.width, y: p.y * size.height) }
+                let outline = Self.outline.map(pt)
+                let center = pt(Self.core)
+                // Sombra dura desplazada
+                var shadow = Path()
+                shadow.addLines(outline.map { CGPoint(x: $0.x + 6, y: $0.y + 8) })
+                shadow.closeSubpath()
+                ctx.fill(shadow, with: .color(.black.opacity(0.7)))
+                // Facetas
+                for i in 0..<outline.count {
+                    var facet = Path()
+                    facet.move(to: center)
+                    facet.addLine(to: outline[i])
+                    facet.addLine(to: outline[(i + 1) % outline.count])
+                    facet.closeSubpath()
+                    let s = Self.shades[i]
+                    ctx.fill(facet, with: .color(Color(red: 0.25 + 0.75 * s, green: 0.18 + 0.2 * s, blue: 0.45 + 0.4 * s)))
+                    ctx.stroke(facet, with: .color(Retro.night.opacity(0.55)), lineWidth: 1.5)
+                }
+                // Núcleo luminoso
+                let r = size.width * 0.17
+                var gem = Path()
+                for k in 0..<6 {
+                    let a = Double(k) / 6 * 2 * .pi - .pi / 2
+                    let p = CGPoint(x: center.x + r * cos(a), y: center.y + r * 1.2 * sin(a))
+                    if k == 0 { gem.move(to: p) } else { gem.addLine(to: p) }
+                }
+                gem.closeSubpath()
+                ctx.fill(gem, with: .color(Retro.night))
+                ctx.fill(gem.applying(CGAffineTransform(translationX: -center.x, y: -center.y)
+                    .concatenating(CGAffineTransform(scaleX: 0.7, y: 0.7))
+                    .concatenating(CGAffineTransform(translationX: center.x, y: center.y))),
+                         with: .color(glow))
+                // Contorno y brillo especular pintado
+                var border = Path()
+                border.addLines(outline)
+                border.closeSubpath()
+                ctx.stroke(border, with: .color(Retro.night), lineWidth: 5)
+                ctx.fill(Path(CGRect(x: size.width * 0.3, y: size.height * 0.2, width: 12, height: 9)),
+                         with: .color(.white.opacity(0.75)))
+            }
+            .shadow(color: glow.opacity(0.8), radius: 10)
         }
-        .compositingGroup()
-        .shadow(color: .black.opacity(0.7), radius: 0, x: 6, y: 8)
+        .aspectRatio(0.8, contentMode: .fit)
     }
 }
 
