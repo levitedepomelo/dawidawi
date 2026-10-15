@@ -42,27 +42,9 @@ final class CaptureFlow: ObservableObject {
                 }
                 // Tirada de rareza: puro azar con las probabilidades configuradas.
                 self.step = .rollingRarity
-                let rarity = settings.rollRarity()
-                let seed = Int.random(in: 1...Int(Int32.max))
-                let count = (try? context.fetchCount(FetchDescriptor<Creature>())) ?? 0
-                let maxNumber = (try? context.fetch(FetchDescriptor<Creature>(sortBy: [SortDescriptor(\.number, order: .reverse)])).first?.number) ?? 0
-                let number = max(count, maxNumber) + 1
-
-                let creature = Creature(number: number,
-                                        name: Creature.defaultName(for: number),
-                                        rarity: rarity,
-                                        generator: generated.usedRemote ? "remote" : "local",
-                                        seed: seed)
-
-                let stage = RetroStage(sprite: generated.sprite, rarity: rarity, seed: seed,
-                                       meshDensity: meshDensity, showcase: true)
-                let thumbStage = RetroStage(sprite: generated.sprite, rarity: rarity, seed: seed,
-                                            meshDensity: meshDensity, showcase: false)
-                let thumb = thumbStage.snapshot()
-
-                try CreatureStore.save(photo: generated.photo, sprite: generated.sprite, thumb: thumb, id: creature.id)
-                context.insert(creature)
-                try context.save()
+                let rarity = DemoMode.forcedRarity ?? settings.rollRarity()
+                let (creature, stage) = try Self.persist(generated, rarity: rarity, context: context,
+                                                         meshDensity: meshDensity)
 
                 // Suspense mínimo para que la animación de "procesado" se luzca
                 let elapsed = Date().timeIntervalSince(started)
@@ -84,6 +66,34 @@ final class CaptureFlow: ObservableObject {
                 self.phase = .camera
             }
         }
+    }
+
+    /// Numera, guarda ficheros e inserta la criatura. Devuelve también su escenario 3D de exhibición.
+    @discardableResult
+    static func persist(_ generated: GeneratedCreature, rarity: Rarity, capturedAt: Date = Date(),
+                        context: ModelContext, meshDensity: Int) throws -> (Creature, RetroStage) {
+        let seed = Int.random(in: 1...Int(Int32.max))
+        let count = (try? context.fetchCount(FetchDescriptor<Creature>())) ?? 0
+        let maxNumber = (try? context.fetch(FetchDescriptor<Creature>(sortBy: [SortDescriptor(\.number, order: .reverse)])).first?.number) ?? 0
+        let number = max(count, maxNumber) + 1
+
+        let creature = Creature(number: number,
+                                name: Creature.defaultName(for: number),
+                                capturedAt: capturedAt,
+                                rarity: rarity,
+                                generator: generated.usedRemote ? "remote" : "local",
+                                seed: seed)
+
+        let stage = RetroStage(sprite: generated.sprite, rarity: rarity, seed: seed,
+                               meshDensity: meshDensity, showcase: true)
+        let thumbStage = RetroStage(sprite: generated.sprite, rarity: rarity, seed: seed,
+                                    meshDensity: meshDensity, showcase: false)
+        let thumb = thumbStage.snapshot()
+
+        try CreatureStore.save(photo: generated.photo, sprite: generated.sprite, thumb: thumb, id: creature.id)
+        context.insert(creature)
+        try context.save()
+        return (creature, stage)
     }
 
     private func attachLocation(to creature: Creature, context: ModelContext) async {

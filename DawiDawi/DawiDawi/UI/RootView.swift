@@ -9,6 +9,7 @@ struct RootView: View {
     @State var showTitle = true
     @State var showCapture = false
     @State var path = NavigationPath()
+    @Environment(\.modelContext) var context
 
     var body: some View {
         ZStack {
@@ -44,6 +45,23 @@ struct RootView: View {
             .environmentObject(settings)
         }
         .onAppear { ChipSynth.shared.prewarm() }
+        .task { await runDemoIfNeeded() }
+    }
+
+    /// Solo con argumentos de lanzamiento (capturas automáticas de CI). Ver DemoMode.
+    private func runDemoIfNeeded() async {
+        guard let scene = DemoMode.scene else { return }
+        showTitle = scene == "title"
+        await DemoMode.seedIfNeeded(context: context, settings: settings)
+        switch scene {
+        case "stats": tab = .stats
+        case "settings": tab = .settings
+        case "capture", "reveal": showCapture = true
+        case "detail":
+            let first = try? context.fetch(FetchDescriptor<Creature>(sortBy: [SortDescriptor(\.number)])).first
+            if let first { path.append(first) }
+        default: break
+        }
     }
 
     private func openCapture() {

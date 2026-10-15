@@ -93,7 +93,14 @@ struct CameraHUDView: View {
                 Color.white.ignoresSafeArea().allowsHitTesting(false)
             }
         }
-        .task { await camera.start() }
+        .task {
+            if DemoMode.scene == "reveal", flow.phase == .camera, flow.creature == nil,
+               let image = DemoMode.image(at: 0) {
+                flow.process(photo: image, context: context, settings: settings)
+                return
+            }
+            await camera.start()
+        }
         .onDisappear { camera.stop() }
         .onChange(of: pickerItem) { _, item in
             guard let item else { return }

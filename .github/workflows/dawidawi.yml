@@ -1,0 +1,153 @@
+name: DawiDawi CI
+
+# Compila la app, la ejecuta en un iPhone simulado recorriendo todo el flujo
+# (foto → generación → rareza → revelación → colección → ficha) y publica:
+#   - DawiDawi.ipa                 Release sin firmar → instalar con Sideloadly / AltStore
+#   - DawiDawi-simulator.zip       .app de simulador → probar en el navegador con Appetize.io
+#   - screenshots/ + reveal.mp4    capturas reales de la app funcionando
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['**.md']
+  workflow_dispatch:
+
+concurrency:
+  group: dawidawi-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    env:
+      PROJECT: DawiDawi/DawiDawi.xcodeproj
+      SCHEME: DawiDawi
+      BUNDLE_ID: com.dawidawi.app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Build for iOS Simulator
+        run: |
+          set -o pipefail
+          xcodebuild -project "$PROJECT" -scheme "$SCHEME" -configuration Release \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/sim ARCHS="arm64 x86_64" ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGNING_ALLOWED=NO build | tee build/sim.log | grep -E "error:|warning:|BUILD" || true
+          test -d build/sim/Build/Products/Release-iphonesimulator/DawiDawi.app
+          mkdir -p out
+          (cd build/sim/Build/Products/Release-iphonesimulator && zip -qry "$GITHUB_WORKSPACE/out/DawiDawi-simulator.zip" DawiDawi.app)
+
+      - name: Build IPA for iPhone (Release, unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild -project "$PROJECT" -scheme "$SCHEME" -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build/dev \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build \
+            | tee build/dev.log | grep -E "error:|BUILD" || true
+          APP=build/dev/Build/Products/Release-iphoneos/DawiDawi.app
+          test -x "$APP/DawiDawi"
+          rm -rf ipa && mkdir -p ipa/Payload && cp -R "$APP" ipa/Payload/
+          (cd ipa && zip -qry "$GITHUB_WORKSPACE/out/DawiDawi.ipa" Payload)
+          ls -la out
+
+      - name: Boot iPhone simulator
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          d = json.load(sys.stdin)["devices"]
+          rts = sorted((k for k in d if "iOS" in k), key=lambda k: [int(x) for x in k.split("iOS-")[-1].split("-") if x.isdigit()])
+          pick = None
+          for rt in reversed(rts):
+              phones = [x for x in d[rt] if x["name"].startswith("iPhone") and "Pro" in x["name"] and "Max" not in x["name"]] \
+                       or [x for x in d[rt] if x["name"].startswith("iPhone")]
+              if phones:
+                  pick = phones[-1]; break
+          print(pick["udid"]); print(pick["name"], rt, file=sys.stderr)')
+          echo "UDID=$UDID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl status_bar "$UDID" override --time "9:41" --batteryState charged --batteryLevel 100 --cellularBars 4 || true
+          xcrun simctl install "$UDID" build/sim/Build/Products/Release-iphonesimulator/DawiDawi.app
+
+      - name: Fetch test photos (Wikimedia Commons)
+        run: |
+          mkdir -p "$RUNNER_TEMP/photos"
+          i=0
+          for f in Cat_November_2010-1a.jpg YellowLabradorLooking_new.jpg Eopsaltria_australis_-_Mogo_Campground.jpg Felis_catus-cat_on_snow.jpg; do
+            i=$((i+1))
+            curl -fsSL -A "DawiDawiCI/1.0 (https://github.com/${GITHUB_REPOSITORY})" \
+              "https://commons.wikimedia.org/wiki/Special:FilePath/$f?width=1200" -o "$RUNNER_TEMP/photos/$i.jpg" \
+              || rm -f "$RUNNER_TEMP/photos/$i.jpg"
+          done
+          ls -la "$RUNNER_TEMP/photos"
+          PHOTOS=$(ls "$RUNNER_TEMP"/photos/*.jpg | paste -sd, -)
+          test -n "$PHOTOS"
+          echo "PHOTOS=$PHOTOS" >> "$GITHUB_ENV"
+
+      - name: Run app scenes and take screenshots
+        run: |
+          mkdir -p out/screenshots
+          LOCALE_ARGS=(-AppleLanguages "(es)" -AppleLocale es_ES)
+          run_scene() { # scene wait-seconds [extra args...]
+            local scene=$1 wait=$2; shift 2
+            xcrun simctl terminate "$UDID" "$BUNDLE_ID" 2>/dev/null || true
+            xcrun simctl launch "$UDID" "$BUNDLE_ID" -demoScene "$scene" -demoImages "$PHOTOS" "${LOCALE_ARGS[@]}" "$@"
+            sleep "$wait"
+          }
+          shot() { xcrun simctl io "$UDID" screenshot "out/screenshots/$1.png"; }
+
+          # La primera escena siembra la colección con el pipeline real (8 criaturas).
+          run_scene collection 45; shot 01-coleccion
+          run_scene title 4;       shot 00-titulo
+          run_scene detail 8;      shot 02-ficha
+          run_scene stats 5;       shot 03-stats
+          run_scene settings 4;    shot 04-ajustes
+          run_scene capture 4;     shot 05-camara
+
+          # Revelación completa grabada en vídeo, con capturas intermedias.
+          xcrun simctl io "$UDID" recordVideo --codec=h264 --force out/reveal-legendario.mp4 &
+          REC=$!
+          sleep 2
+          run_scene reveal 0 -demoRarity legendary
+          for t in 1 3 5 7 9 12 16; do sleep 2; shot "06-revelacion-$(printf %02d $t)"; done
+          kill -INT $REC; wait $REC || true
+
+          run_scene reveal 0 -demoRarity mythic
+          for t in 4 8 12 16; do sleep 4; shot "07-mitico-$t"; done
+
+          run_scene collection 6;  shot 08-coleccion-final
+          ls -la out/screenshots
+
+      - name: Collect crash reports
+        if: always()
+        run: |
+          mkdir -p out/crashes
+          find ~/Library/Logs/DiagnosticReports -name 'DawiDawi*' -exec cp {} out/crashes/ \; 2>/dev/null || true
+          ls -la out/crashes
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: DawiDawi-ipa
+          path: out/DawiDawi.ipa
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: DawiDawi-simulator-appetize
+          path: out/DawiDawi-simulator.zip
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: DawiDawi-screenshots
+          path: |
+            out/screenshots
+            out/*.mp4
+            out/crashes
+            build/*.log
+          if-no-files-found: ignore
