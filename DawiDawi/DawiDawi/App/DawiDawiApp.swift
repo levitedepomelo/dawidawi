@@ -7,6 +7,10 @@ struct DawiDawiApp: App {
     @StateObject var settings = AppSettings.shared
 
     init() {
+        // SwiftData guarda en Application Support: créala antes (evita avisos en el primer arranque)
+        if let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
+            try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+        }
         do {
             container = try ModelContainer(for: Creature.self)
         } catch {

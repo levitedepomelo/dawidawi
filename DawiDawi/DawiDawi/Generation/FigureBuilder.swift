@@ -206,7 +206,7 @@ enum FigureBuilder {
     /// Estira el contraste de cada recorte (percentiles 4–96 %) para que los animales oscuros
     /// o muy claros sigan mostrando sus rasgos en la textura low-res.
     private static func autoLevels(_ image: CGImage) -> CGImage? {
-        guard var buf = PixelBuffer(cgImage: image) else { return nil }
+        guard var buf = PixelBuffer(exact: image) else { return nil }
         var lum: [Double] = []
         lum.reserveCapacity(buf.width * buf.height)
         for i in stride(from: 0, to: buf.data.count, by: 4) where buf.data[i + 3] > 0 {

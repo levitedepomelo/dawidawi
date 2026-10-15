@@ -47,6 +47,30 @@ struct PixelBuffer {
         }
     }
 
+    /// Copia exacta (mismo ancho y alto, sin lienzo cuadrado).
+    init?(exact image: CGImage) {
+        self.init(width: image.width, height: image.height)
+        let w = width, h = height
+        var premult = [UInt8](repeating: 0, count: w * h * 4)
+        let ok: Bool = premult.withUnsafeMutableBytes { raw in
+            guard let ctx = CGContext(data: raw.baseAddress, width: w, height: h, bitsPerComponent: 8,
+                                      bytesPerRow: w * 4, space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return false }
+            ctx.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
+            return true
+        }
+        guard ok else { return nil }
+        for i in stride(from: 0, to: premult.count, by: 4) {
+            let a = premult[i + 3]
+            if a == 0 { continue }
+            let af = Double(a) / 255
+            data[i] = UInt8(min(255, Double(premult[i]) / af))
+            data[i + 1] = UInt8(min(255, Double(premult[i + 1]) / af))
+            data[i + 2] = UInt8(min(255, Double(premult[i + 2]) / af))
+            data[i + 3] = a
+        }
+    }
+
     init?(cgImage: CGImage) {
         self.init(image: cgImage, canvas: max(cgImage.width, cgImage.height), margin: 0)
     }
