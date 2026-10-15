@@ -21,10 +21,13 @@ struct RootView: View {
                 }
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                RetroTabBar(tab: $tab, onCapture: openCapture)
+                RetroTabBar(tab: $tab, onCapture: openCapture, onHome: {
+                    ChipSynth.shared.play(.select)
+                    withAnimation(.easeInOut(duration: 0.35)) { showTitle = true }
+                })
             }
 
-            if showTitle && settings.showTitleScreen {
+            if showTitle && (settings.showTitleScreen || DemoMode.scene == "title") {
                 TitleScreen {
                     withAnimation(.easeInOut(duration: 0.35)) { showTitle = false }
                 }
@@ -71,71 +74,125 @@ struct RootView: View {
     }
 }
 
-/// Barra inferior tipo menú de consola, con el botón de captura destacado.
+/// Dock de cristal flotante con botones de gel redondos y el orbe de captura en el centro.
 struct RetroTabBar: View {
     @Binding var tab: MainTab
     let onCapture: () -> Void
+    var onHome: () -> Void = {}
 
     var body: some View {
-        HStack(alignment: .bottom, spacing: 0) {
-            item(.collection, icon: "square.grid.3x3.fill", title: "COLECCIÓN")
-            Button(action: onCapture) {
-                VStack(spacing: 2) {
-                    ZStack {
-                        LowPolyCircle(sides: 10).fill(Retro.shadow).offset(y: 4)
-                        LowPolyCircle(sides: 10).fill(LinearGradient(colors: [Retro.magenta, Color(red: 0.6, green: 0.05, blue: 0.3)],
-                                                                    startPoint: .top, endPoint: .bottom))
-                        LowPolyCircle(sides: 10).strokeBorderCompat(Retro.cream, lineWidth: 3)
-                        Image(systemName: "camera.fill")
-                            .font(.system(size: 22, weight: .black))
-                            .foregroundStyle(Retro.cream)
-                    }
-                    .frame(width: 66, height: 66)
-                    Text("CAPTURAR").font(.retro(9)).foregroundStyle(Retro.yellow)
-                }
-                .offset(y: -10)
+        HStack(alignment: .center, spacing: 0) {
+            HStack(spacing: 0) {
+                AeroDockButton(icon: "house.fill", title: "Inicio", active: false, tint: Retro.orange, action: onHome)
+                tabButton(.collection, icon: "square.grid.2x2.fill", title: "Colección", tint: Retro.cyan)
             }
-            .buttonStyle(.plain)
             .frame(maxWidth: .infinity)
-            .accessibilityLabel("Capturar criatura")
-            item(.stats, icon: "chart.bar.fill", title: "STATS")
-            item(.settings, icon: "gearshape.fill", title: "AJUSTES")
+
+            Button(action: onCapture) { CaptureOrb() }
+                .buttonStyle(.plain)
+                .offset(y: -16)
+                .accessibilityLabel("Capturar criatura")
+
+            HStack(spacing: 0) {
+                tabButton(.stats, icon: "chart.bar.fill", title: "Logros", tint: Retro.green)
+                tabButton(.settings, icon: "gearshape.fill", title: "Ajustes", tint: Color(white: 0.7))
+            }
+            .frame(maxWidth: .infinity)
         }
         .padding(.horizontal, 8)
-        .padding(.top, 6)
+        .padding(.top, 8)
+        .padding(.bottom, 6)
         .background(
-            ZStack(alignment: .top) {
-                Retro.night
-                Rectangle().fill(Retro.cream).frame(height: 3)
-                Rectangle().fill(Retro.magenta.opacity(0.6)).frame(height: 2).offset(y: 3)
+            ZStack {
+                RoundedRectangle(cornerRadius: 30, style: .continuous).fill(.ultraThinMaterial)
+                RoundedRectangle(cornerRadius: 30, style: .continuous)
+                    .fill(LinearGradient(colors: [.white.opacity(0.55), Retro.panelLight.opacity(0.35)],
+                                         startPoint: .top, endPoint: .bottom))
+                GlossHighlight(opacity: 0.5).clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
+                RoundedRectangle(cornerRadius: 30, style: .continuous).strokeBorder(.white.opacity(0.95), lineWidth: 1.5)
             }
-            .ignoresSafeArea(edges: .bottom)
+            .shadow(color: Retro.night.opacity(0.3), radius: 16, x: 0, y: 8)
         )
+        .padding(.horizontal, 12)
+        .padding(.bottom, 2)
     }
 
-    private func item(_ value: MainTab, icon: String, title: String) -> some View {
-        Button {
+    private func tabButton(_ value: MainTab, icon: String, title: String, tint: Color) -> some View {
+        AeroDockButton(icon: icon, title: title, active: tab == value, tint: tint) {
             guard tab != value else { return }
             ChipSynth.shared.play(.select)
             Haptics.tap(.light)
-            tab = value
-        } label: {
-            VStack(spacing: 4) {
-                Image(systemName: icon).font(.system(size: 18, weight: .black))
-                Text(title).font(.retro(9))
-                Rectangle().fill(tab == value ? Retro.yellow : .clear).frame(width: 26, height: 3)
-            }
-            .foregroundStyle(tab == value ? Retro.yellow : Retro.cream.opacity(0.55))
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 6)
-            .contentShape(Rectangle())
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { tab = value }
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(title.capitalized)
     }
 }
 
-/// Pantalla de título "PULSA START" (se puede desactivar en Ajustes).
+/// Botón redondo de gel con icono (como los menús de consola de mediados de los 2000).
+struct AeroDockButton: View {
+    let icon: String
+    let title: String
+    let active: Bool
+    let tint: Color
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 3) {
+                ZStack {
+                    Circle().fill(LinearGradient(colors: active ? [tint.mix(.white, 0.5), tint, tint.mix(.black, 0.25)]
+                                                                : [.white, Color(red: 0.86, green: 0.93, blue: 0.98)],
+                                                 startPoint: .top, endPoint: .bottom))
+                    GlossHighlight(opacity: 0.8).clipShape(Circle()).padding(2)
+                    Circle().strokeBorder(active ? Color.white : Color(red: 0.6, green: 0.78, blue: 0.9), lineWidth: 1.5)
+                    Image(systemName: icon)
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundStyle(active ? Color.white : Retro.navy)
+                        .shadow(color: active ? tint.mix(.black, 0.5) : .clear, radius: 1, x: 0, y: 1)
+                }
+                .frame(width: 44, height: 44)
+                .shadow(color: active ? tint.opacity(0.8) : Retro.night.opacity(0.2), radius: active ? 8 : 3, x: 0, y: 2)
+                .scaleEffect(active ? 1.06 : 1)
+                Text(title)
+                    .font(.retro(10, weight: .semibold))
+                    .foregroundStyle(Retro.night)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(active ? .isSelected : [])
+    }
+}
+
+/// Orbe de captura: esfera de gel aguamarina con reflejo y halo.
+struct CaptureOrb: View {
+    var size: CGFloat = 74
+    @State var pulse = false
+    var body: some View {
+        ZStack {
+            Circle().fill(Retro.cyan.opacity(0.35)).scaleEffect(pulse ? 1.25 : 1.05).blur(radius: 6)
+            Circle().fill(RadialGradient(colors: [Color(red: 0.55, green: 0.95, blue: 1), Color(red: 0.05, green: 0.55, blue: 0.95),
+                                                  Color(red: 0.02, green: 0.30, blue: 0.70)],
+                                         center: UnitPoint(x: 0.5, y: 0.75), startRadius: 2, endRadius: size * 0.6))
+            GlossHighlight(opacity: 0.85).clipShape(Circle()).padding(3)
+            Circle().strokeBorder(Color.white, lineWidth: 2.5)
+            Image(systemName: "camera.fill")
+                .font(.system(size: size * 0.32, weight: .bold))
+                .foregroundStyle(Color.white)
+                .shadow(color: Retro.night.opacity(0.6), radius: 2, x: 0, y: 1)
+        }
+        .frame(width: size, height: size)
+        .shadow(color: Color(red: 0.0, green: 0.35, blue: 0.8).opacity(0.5), radius: 10, x: 0, y: 6)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true)) { pulse = true }
+        }
+    }
+}
+
+/// Pantalla de inicio: logo de cristal, tu criatura estrella dentro de una burbuja y "toca para empezar".
 struct TitleScreen: View {
     let onStart: () -> Void
     @Query(sort: \Creature.rarityRaw) var creatures: [Creature]
@@ -150,44 +207,62 @@ struct TitleScreen: View {
 
     var body: some View {
         ZStack {
-            RetroBackground(floorColor: Retro.magenta)
-            VStack(spacing: 18) {
-                Spacer(minLength: 30)
-                VStack(spacing: -6) {
-                    ExtrudedText(text: "DAWI", size: 72)
-                    ExtrudedText(text: "DAWI", size: 72, fill: [Retro.cyan, Color(red: 0.2, green: 0.4, blue: 1)],
-                                 depthColor: Color(red: 0.08, green: 0.1, blue: 0.4))
-                }
-                .rotationEffect(.degrees(-4))
-                .scaleEffect(logoIn ? 1 : 0.2)
-                .opacity(logoIn ? 1 : 0)
+            RetroBackground(floorColor: Retro.cyan)
+            VStack(spacing: 16) {
+                Spacer(minLength: 40)
+                ExtrudedText(text: "DawiDawi", size: 64)
+                    .scaleEffect(logoIn ? 1 : 0.4)
+                    .opacity(logoIn ? 1 : 0)
 
-                Text("COLECCIONA LO QUE ENCUENTRES")
-                    .font(.retro(12))
-                    .foregroundStyle(Retro.cream)
-                    .shadow(color: .black, radius: 0, x: 2, y: 2)
+                Text("Colecciona lo que encuentres")
+                    .font(.retro(15, weight: .semibold))
+                    .foregroundStyle(Color.white)
+                    .aeroTextShadow()
 
-                Group {
+                ZStack {
                     if let hero {
                         CreatureModelView(creatureID: hero.id, rarity: hero.rarity, seed: hero.seed,
                                           showcase: true, interactive: false)
-                            .frame(width: 230, height: 230)
-                            .clipShape(PixelRect(step: 6))
-                            .overlay(PixelRect(step: 6).strokeBorder(hero.rarity.color, lineWidth: 4))
+                            .clipShape(Circle())
                     } else {
-                        CapsuleOrb(glow: Retro.yellow, intensity: 0.4)
-                            .frame(width: 130, height: 130)
-                            .offset(y: bob ? -10 : 8)
-                            .frame(height: 230)
+                        Image(systemName: "pawprint.fill")
+                            .font(.system(size: 80, weight: .bold))
+                            .foregroundStyle(Color.white.opacity(0.9))
+                            .shadow(color: Retro.night.opacity(0.4), radius: 6)
                     }
+                    // Burbuja de cristal
+                    Circle().fill(RadialGradient(colors: [.clear, .white.opacity(0.08), .white.opacity(0.45)],
+                                                 center: .center, startRadius: 60, endRadius: 135))
+                    GlossHighlight(opacity: 0.55).clipShape(Circle()).padding(10)
+                    Circle().strokeBorder(Color.white.opacity(0.9), lineWidth: 2)
                 }
+                .frame(width: 260, height: 260)
+                .shadow(color: Retro.night.opacity(0.3), radius: 18, x: 0, y: 12)
+                .offset(y: bob ? -8 : 8)
 
                 Spacer()
-                BlinkingText(text: "PULSA START", font: .retro(22), color: Retro.yellow)
-                Text("© 2026 DAWIDAWI · \(creatures.count) CRIATURAS")
-                    .font(.retro(10))
-                    .foregroundStyle(Retro.cream.opacity(0.6))
-                    .padding(.bottom, 30)
+
+                Text("Toca para empezar")
+                    .font(.retro(18))
+                    .foregroundStyle(Retro.night)
+                    .padding(.horizontal, 30)
+                    .padding(.vertical, 14)
+                    .background(
+                        ZStack {
+                            Capsule().fill(LinearGradient(colors: [.white, Color(red: 0.8, green: 0.93, blue: 1)],
+                                                          startPoint: .top, endPoint: .bottom))
+                            GlossHighlight(opacity: 0.9).clipShape(Capsule())
+                            Capsule().strokeBorder(Color.white, lineWidth: 1.5)
+                        }
+                        .shadow(color: Retro.night.opacity(0.3), radius: 10, x: 0, y: 6)
+                    )
+                    .scaleEffect(bob ? 1.04 : 0.98)
+
+                Text("\(creatures.count) criaturas en tu colección")
+                    .font(.retro(12, weight: .semibold))
+                    .foregroundStyle(Color.white)
+                    .aeroTextShadow()
+                    .padding(.bottom, 36)
             }
         }
         .contentShape(Rectangle())
@@ -197,11 +272,11 @@ struct TitleScreen: View {
             onStart()
         }
         .onAppear {
-            withAnimation(.spring(response: 0.6, dampingFraction: 0.55).delay(0.1)) { logoIn = true }
-            withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) { bob = true }
+            withAnimation(.spring(response: 0.7, dampingFraction: 0.6).delay(0.1)) { logoIn = true }
+            withAnimation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true)) { bob = true }
         }
         .accessibilityAddTraits(.isButton)
-        .accessibilityLabel("DawiDawi. Pulsa para empezar")
+        .accessibilityLabel("DawiDawi. Toca para empezar")
     }
 }
 
@@ -219,7 +294,7 @@ struct CreatureModelView: View {
 
     var body: some View {
         ZStack {
-            Color.black
+            LinearGradient(colors: [Retro.skyTop, Retro.skyBottom], startPoint: .top, endPoint: .bottom)
             if let stage {
                 RetroSceneView(stage: stage, pixelScale: pixelScale, interactive: interactive)
             } else if failed {

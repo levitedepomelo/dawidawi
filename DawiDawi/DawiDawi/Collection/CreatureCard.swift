@@ -18,13 +18,13 @@ struct CreatureCard: View {
                         .foregroundStyle(Retro.cream)
                         .padding(.horizontal, 4)
                         .padding(.vertical, 2)
-                        .background(Rectangle().fill(Retro.night.opacity(0.85)))
+                        .background(Capsule().fill(Retro.night.opacity(0.55)))
                     Spacer()
                     if creature.isFavorite {
                         Image(systemName: "heart.fill")
                             .font(.system(size: 11, weight: .black))
                             .foregroundStyle(Retro.magenta)
-                            .shadow(color: .black, radius: 0, x: 1, y: 1)
+                            .shadow(color: .white, radius: 2)
                     }
                 }
                 .padding(5)
@@ -35,15 +35,20 @@ struct CreatureCard: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(creature.displayName)
                     .font(.retro(11))
-                    .foregroundStyle(Retro.cream)
+                    .foregroundStyle(Retro.night)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
-                StarsRow(count: rarity.stars, size: 7, color: rarity == .mythic ? Retro.magenta : Retro.yellow)
+                StarsRow(count: rarity.stars, size: 7, color: rarity == .mythic ? Retro.magenta : Retro.orange)
             }
             .padding(.horizontal, 6)
             .padding(.vertical, 6)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Retro.night)
+            .background(
+                ZStack {
+                    LinearGradient(colors: [.white, Color(red: 0.84, green: 0.94, blue: 1)], startPoint: .top, endPoint: .bottom)
+                    GlossHighlight(opacity: 0.7)
+                }
+            )
         }
         .clipShape(PixelRect(step: 3))
         .modifier(RarityFrame(rarity: rarity))
@@ -67,12 +72,15 @@ struct RarityFrame: ViewModifier {
                                       lineWidth: 4)
                         .hueRotation(.degrees(animate ? 360 : 0))
                 } else {
-                    PixelRect(step: 3).strokeBorder(rarity.color, lineWidth: rarity >= .epic ? 4 : 3)
+                    ZStack {
+                        PixelRect(step: 3).strokeBorder(rarity.color, lineWidth: rarity >= .epic ? 3.5 : 2.5)
+                        PixelRect(step: 3).inset(by: 1).strokeBorder(.white.opacity(0.8), lineWidth: 1)
+                    }
                 }
             }
             .shadow(color: rarity >= .legendary ? rarity.color.opacity(animate ? 0.9 : 0.3) : .clear,
                     radius: rarity >= .legendary ? 10 : 0)
-            .background(PixelRect(step: 3).fill(Retro.shadow).offset(x: 4, y: 4))
+            .shadow(color: Retro.night.opacity(0.25), radius: 8, x: 0, y: 5)
             .onAppear {
                 guard rarity >= .legendary else { return }
                 withAnimation(.linear(duration: rarity == .mythic ? 3 : 1.2).repeatForever(autoreverses: rarity != .mythic)) {

@@ -19,7 +19,7 @@ struct DawiDawiApp: App {
         WindowGroup {
             RootView()
                 .environmentObject(settings)
-                .preferredColorScheme(.dark)
+                .preferredColorScheme(.light)
                 .tint(Retro.yellow)
         }
         .modelContainer(container)

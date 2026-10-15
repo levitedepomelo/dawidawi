@@ -23,10 +23,10 @@ final class RetroStage {
     // MARK: Entorno
 
     private func buildEnvironment() {
-        scene.background.contents = UIColor(red: 0.04, green: 0.05, blue: 0.12, alpha: 1)
-        scene.fogColor = UIColor(red: 0.05, green: 0.05, blue: 0.10, alpha: 1)
-        scene.fogStartDistance = 5
-        scene.fogEndDistance = 15
+        scene.background.contents = Self.skyTexture
+        scene.fogColor = UIColor(red: 0.80, green: 0.93, blue: 1.0, alpha: 1)
+        scene.fogStartDistance = 4
+        scene.fogEndDistance = 13
 
         let floor = SCNPlane(width: 30, height: 30)
         let floorMat = Self.pixelMaterial(Self.checkerTexture)
@@ -37,16 +37,6 @@ final class RetroStage {
         let floorNode = SCNNode(geometry: floor)
         floorNode.eulerAngles.x = -.pi / 2
         scene.rootNode.addChildNode(floorNode)
-
-        let wall = SCNPlane(width: 30, height: 12)
-        let wallMat = Self.pixelMaterial(Self.woodTexture)
-        wallMat.diffuse.wrapS = .repeat
-        wallMat.diffuse.wrapT = .repeat
-        wallMat.diffuse.contentsTransform = SCNMatrix4MakeScale(14, 3, 1)
-        wall.materials = [wallMat]
-        let wallNode = SCNNode(geometry: wall)
-        wallNode.position = SCNVector3(0, 5.5, -3.2)
-        scene.rootNode.addChildNode(wallNode)
 
         let shadow = SCNPlane(width: 1.5, height: 0.7)
         let shadowMat = SCNMaterial()
@@ -74,6 +64,23 @@ final class RetroStage {
     private func buildCreature(sprite: CGImage, seed: Int, meshDensity: Int) {
         scene.rootNode.addChildNode(turntable)
         turntable.addChildNode(creatureNode)
+
+        // Estilo por defecto: muñeco low-poly por piezas con la cara y el pelaje de la foto.
+        if (UserDefaults.standard.string(forKey: "gen.style") ?? "figure") == "figure",
+           let figure = FigureBuilder.build(sprite: sprite, seed: seed) {
+            triangleCount = figure.triangleCount
+            creatureNode.addChildNode(figure.node)
+            let scale = min(1.55 / max(figure.height, 0.01), 2.0 / max(figure.width, 0.01))
+            creatureNode.scale = SCNVector3(scale, scale, scale)
+            let base = scale
+            let hop = SCNAction.customAction(duration: 1.8) { node, elapsed in
+                let t = Float(elapsed / 1.8) * 2 * .pi
+                node.scale = SCNVector3(base * (1 - 0.012 * sin(t)), base * (1 + 0.03 * sin(t)), base)
+            }
+            creatureNode.runAction(.repeatForever(hop), forKey: "breathe")
+            startSpin()
+            return
+        }
 
         guard let mesh = MeshBuilder.build(sprite: sprite, grid: meshDensity, seed: seed) else {
             // Sin silueta usable: tarjeta plana (alternativa 2D)
@@ -265,8 +272,16 @@ final class RetroStage {
         return image.cgImage
     }
 
+    /// Césped en cuadros (dos verdes), como los jardines de los menús de mediados de los 2000.
     static let checkerTexture: CGImage? = pixelImage(width: 2, height: 2) { x, y in
-        (x + y) % 2 == 0 ? UIColor(white: 0.92, alpha: 1) : UIColor(white: 0.07, alpha: 1)
+        (x + y) % 2 == 0 ? UIColor(red: 0.50, green: 0.85, blue: 0.28, alpha: 1)
+                         : UIColor(red: 0.36, green: 0.72, blue: 0.20, alpha: 1)
+    }
+
+    /// Cielo degradado para el fondo de la escena.
+    static let skyTexture: CGImage? = pixelImage(width: 1, height: 32) { _, y in
+        let t = CGFloat(y) / 31
+        return UIColor(red: 0.16 + 0.62 * t, green: 0.52 + 0.40 * t, blue: 0.93 + 0.07 * t, alpha: 1)
     }
 
     static let woodTexture: CGImage? = {

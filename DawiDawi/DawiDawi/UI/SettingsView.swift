@@ -3,6 +3,7 @@ import SwiftData
 
 struct SettingsView: View {
     @EnvironmentObject var settings: AppSettings
+    @AppStorage("gen.style") var modelStyle = "figure"
     @ObservedObject var location = LocationProvider.shared
     @Environment(\.modelContext) var context
     @Query var creatures: [Creature]
@@ -163,7 +164,13 @@ struct SettingsView: View {
                     Text("112px").tag(112)
                 }
                 .pickerStyle(.segmented)
-                Text("DENSIDAD DE POLÍGONOS").font(.retro(10)).foregroundStyle(Retro.cyan).padding(.top, 4)
+                Text("ESTILO DEL MODELO 3D").font(.retro(10)).foregroundStyle(Retro.cyan).padding(.top, 4)
+                Picker("Estilo", selection: $modelStyle) {
+                    Text("Muñeco").tag("figure")
+                    Text("Silueta").tag("silhouette")
+                }
+                .pickerStyle(.segmented)
+                Text("DENSIDAD DE POLÍGONOS (SILUETA)").font(.retro(10)).foregroundStyle(Retro.cyan).padding(.top, 4)
                 Picker("Polígonos", selection: $settings.meshDensity) {
                     Text("Tosco").tag(18)
                     Text("PS1").tag(26)

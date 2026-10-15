@@ -38,7 +38,7 @@ struct RetroSceneView: UIViewRepresentable {
         view.pixelScale = pixelScale
         view.scene = stage.scene
         view.pointOfView = stage.cameraNode
-        view.backgroundColor = .black
+        view.backgroundColor = UIColor(red: 0.55, green: 0.82, blue: 0.98, alpha: 1)
         view.antialiasingMode = .none
         view.preferredFramesPerSecond = 30 // 30 fps: auténtico y ahorra batería
         view.rendersContinuously = true
