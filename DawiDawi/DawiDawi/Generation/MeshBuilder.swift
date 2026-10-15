@@ -109,8 +109,11 @@ enum MeshBuilder {
             for i in comp {
                 let x = i % g, y = i / g
                 sumRow += Float(y); lowest = max(lowest, y)
-                let touches = [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)].contains { nx, ny in
-                    nx >= 0 && ny >= 0 && nx < g && ny < g && bodyMask[ny * g + nx]
+                var touches = false
+                for (dx, dy) in neighbours4 {
+                    let nx = x + dx, ny = y + dy
+                    guard nx >= 0, ny >= 0, nx < g, ny < g else { continue }
+                    if bodyMask[ny * g + nx] { touches = true; break }
                 }
                 if touches { ax += Float(x); ay += Float(y); an += 1 }
             }
@@ -118,7 +121,9 @@ enum MeshBuilder {
                 for i in comp { ax += Float(i % g); ay += Float(i / g) }
                 an = Float(comp.count)
             }
-            let anchor = SCNVector3((ax / an + 0.5) / Float(g) - 0.5, 1 - (ay / an + 0.5) / Float(g), 0)
+            let anchorX: Float = (ax / an + 0.5) / Float(g) - 0.5
+            let anchorY: Float = 1 - (ay / an + 0.5) / Float(g)
+            let anchor = SCNVector3(anchorX, anchorY, 0)
             let centerRow = sumRow / Float(comp.count)
 
             let kind: PartKind
@@ -182,7 +187,8 @@ enum MeshBuilder {
                     if !boundary {
                         let d = cells.map { dist[$0.1 * g + $0.0] }.min() ?? 1
                         let t = min(1, max(0, d / max(radius, 1)))
-                        z = depth * max(radius, 1) / gf * sqrt(max(0, 1 - (1 - t) * (1 - t)))
+                        let profile: Float = sqrt(max(0, 1 - (1 - t) * (1 - t)))
+                        z = depth * max(radius, 1) / gf * profile
                         // Jitter: facetas irregulares, como modelado a mano en los 90
                         z *= Float.random(in: 0.9...1.08, using: &rng)
                         jx = Float.random(in: -0.16...0.16, using: &rng) / gf
@@ -291,14 +297,16 @@ enum MeshBuilder {
         let diag: Float = 1.4142
         for y in 0..<g {
             for x in 0..<g where inside[y * g + x] {
-                d[y * g + x] = min(d[y * g + x], at(x - 1, y) + 1, at(x, y - 1) + 1,
-                                   at(x - 1, y - 1) + diag, at(x + 1, y - 1) + diag)
+                let a: Float = min(at(x - 1, y), at(x, y - 1)) + 1
+                let b: Float = min(at(x - 1, y - 1), at(x + 1, y - 1)) + diag
+                d[y * g + x] = min(d[y * g + x], min(a, b))
             }
         }
         for y in stride(from: g - 1, through: 0, by: -1) {
             for x in stride(from: g - 1, through: 0, by: -1) where inside[y * g + x] {
-                d[y * g + x] = min(d[y * g + x], at(x + 1, y) + 1, at(x, y + 1) + 1,
-                                   at(x + 1, y + 1) + diag, at(x - 1, y + 1) + diag)
+                let a: Float = min(at(x + 1, y), at(x, y + 1)) + 1
+                let b: Float = min(at(x + 1, y + 1), at(x - 1, y + 1)) + diag
+                d[y * g + x] = min(d[y * g + x], min(a, b))
             }
         }
         return d
@@ -313,7 +321,8 @@ enum MeshBuilder {
             for yy in max(0, y - r)...min(g - 1, y + r) {
                 for xx in max(0, x - r)...min(g - 1, x + r) {
                     let dx = Float(xx - x), dy = Float(yy - y)
-                    if dx * dx + dy * dy <= radius * radius && inside[yy * g + xx] { out[yy * g + xx] = true }
+                    let d2: Float = dx * dx + dy * dy
+                    if d2 <= radius * radius && inside[yy * g + xx] { out[yy * g + xx] = true }
                 }
             }
         }
@@ -327,10 +336,11 @@ enum MeshBuilder {
             var next = current
             for i in 0..<(g * g) where !current[i] && limit[i] {
                 let x = i % g, y = i / g
-                if neighbours4.contains(where: { dx, dy in
+                for (dx, dy) in neighbours4 {
                     let nx = x + dx, ny = y + dy
-                    return nx >= 0 && ny >= 0 && nx < g && ny < g && current[ny * g + nx]
-                }) { next[i] = true }
+                    guard nx >= 0, ny >= 0, nx < g, ny < g else { continue }
+                    if current[ny * g + nx] { next[i] = true; break }
+                }
             }
             current = next
         }
