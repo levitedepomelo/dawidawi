@@ -91,8 +91,23 @@ final class RetroStage {
         let frontMat = Self.pixelMaterial(texture)
         let backMat = Self.pixelMaterial(texture)
         backMat.multiply.contents = UIColor(white: 0.72, alpha: 1)
-        mesh.geometry.materials = [frontMat, backMat]
-        creatureNode.geometry = mesh.geometry
+        for part in mesh.parts {
+            part.geometry.materials = [frontMat, backMat]
+            let node = SCNNode(geometry: part.geometry)
+            // Pivote en el punto de unión → la pieza gira "desde" el cuerpo
+            node.pivot = SCNMatrix4MakeTranslation(part.anchor.x, part.anchor.y, 0)
+            node.position = SCNVector3(part.anchor.x, part.anchor.y, part.zOffset)
+            if part.zOffset < 0 {
+                // Pata trasera: un poco más oscura, como sombreado de vértices
+                let darker = Self.pixelMaterial(texture)
+                darker.multiply.contents = UIColor(white: 0.8, alpha: 1)
+                let geometry = part.geometry.copy() as! SCNGeometry
+                geometry.materials = [darker, backMat]
+                node.geometry = geometry
+            }
+            Self.animate(node, part: part)
+            creatureNode.addChildNode(node)
+        }
 
         let scale = min(1.55 / max(mesh.height, 0.01), 2.0 / max(mesh.width, 0.01))
         creatureNode.pivot = SCNMatrix4MakeTranslation(mesh.centerX, mesh.minY, 0)
@@ -107,6 +122,25 @@ final class RetroStage {
         }
         creatureNode.runAction(.repeatForever(breathe), forKey: "breathe")
         startSpin()
+    }
+
+    /// Animación idle de cada pieza según su tipo (pura forma, sin saber qué animal es).
+    private static func animate(_ node: SCNNode, part: MeshBuilder.Part) {
+        let axis: SCNVector3
+        let amplitude: Float
+        let period: Double
+        switch part.kind {
+        case .body: return
+        case .leg: axis = SCNVector3(0, 0, 1); amplitude = 0.10; period = 1.4
+        case .top: axis = SCNVector3(0, 0, 1); amplitude = 0.07; period = 2.3
+        case .side: axis = SCNVector3(0, 1, 0); amplitude = 0.28; period = 1.1
+        }
+        let phase = part.phase
+        let action = SCNAction.customAction(duration: period) { n, elapsed in
+            let t = Float(elapsed / period) * 2 * .pi + phase
+            n.rotation = SCNVector4(axis.x, axis.y, axis.z, amplitude * sin(t))
+        }
+        node.runAction(.repeatForever(action), forKey: "idle")
     }
 
     private func buildLights() {

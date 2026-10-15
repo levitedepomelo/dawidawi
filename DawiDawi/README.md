@@ -9,10 +9,39 @@ No hay Pokédex ni catálogo de especies; tu colección es solo lo que tú fotog
 
 ---
 
-## 1. Requisitos y cómo abrirlo
+## 1. Cómo conseguir la app (sin Mac)
 
-| Requisito | Versión |
+Cada `git push` a `main` lanza **GitHub Actions → "DawiDawi CI"**, que en un Mac en la nube:
+compila la app, la **ejecuta en un iPhone simulado** recorriendo todo el flujo y publica en la
+pestaña *Actions → (última ejecución) → Artifacts*:
+
+| Artefacto | Para qué |
 |---|---|
+| `DawiDawi-ipa` → `DawiDawi.ipa` | Instalarla en **tu iPhone** (Release, sin firmar) |
+| `DawiDawi-simulator-appetize` → `DawiDawi-simulator.zip` | **Probarla en el navegador** desde Windows |
+| `DawiDawi-screenshots` | Capturas de cada pantalla y vídeo de una revelación legendaria |
+
+### A) Probarla en el navegador (Windows, sin iPhone)
+1. Entra en **https://appetize.io/upload** (cuenta gratuita).
+2. Sube `DawiDawi-simulator.zip` tal cual (plataforma iOS).
+3. Abre el enlace que te da: es un iPhone simulado en el navegador. El simulador no tiene cámara,
+   así que en *Capturar* usa el botón **Importar foto** (puedes arrastrar fotos a la galería del simulador).
+
+### B) Instalarla en tu iPhone desde Windows (gratis, con tu Apple ID)
+1. Instala **iTunes** (versión web de Apple, no la de Microsoft Store) y **Sideloadly** (https://sideloadly.io).
+2. Conecta el iPhone por cable y pulsa "Confiar" en el iPhone.
+3. Arrastra `DawiDawi.ipa` a Sideloadly, escribe tu Apple ID y pulsa **Start**.
+   Sideloadly firma la app con tu cuenta (si da error de bundle ID, activa *Advanced → Change bundle ID*).
+4. En el iPhone: **Ajustes → Privacidad y seguridad → Modo de desarrollador → Activar** (reinicia),
+   y luego **Ajustes → General → VPN y gestión de dispositivos → tu Apple ID → Confiar**.
+5. Abre DawiDawi. Con una Apple ID gratuita la firma dura **7 días**: después, repite el paso 3
+   (tus criaturas se conservan). Con una cuenta de desarrollador de pago (99 €/año) dura 1 año.
+
+### C) Con un Mac
+Abre `DawiDawi/DawiDawi.xcodeproj` en Xcode 16 o posterior, elige tu *Team* en *Signing & Capabilities*
+y pulsa **Run**. Requisitos: iOS 17.0 o posterior. No hace falta ningún paquete externo, solo frameworks de Apple.
+
+---|---|
 | Mac con **Xcode 16** o posterior | (el proyecto usa carpetas sincronizadas, formato de Xcode 16) |
 | iOS mínimo | **17.0** (SwiftData, Vision "lift subject", MapKit para SwiftUI) |
 | Dispositivo | iPhone real recomendado (la cámara y el recorte de Vision no funcionan en el simulador) |
@@ -36,7 +65,7 @@ No hace falta ningún paquete externo: solo frameworks de Apple.
 | UI | **SwiftUI** + componentes retro propios | Nativo, se adapta a todos los iPhone (SE → Pro Max) |
 | Cámara | **AVFoundation** (`AVCaptureSession`, `AVCapturePhotoOutput`) | Visor a pantalla completa con HUD de videojuego, no la cámara estándar |
 | Importar foto | **PhotosPicker** | No requiere permiso de fototeca |
-| Recortar al sujeto | **Vision** `VNGenerateForegroundInstanceMaskRequest` | Separa figura/fondo **sin reconocer qué es** (sin etiquetas ni especies) |
+| Recortar al sujeto | **Vision** `VNGenerateForegroundInstanceMaskRequest` + segmentador propio por color | Separa figura/fondo **sin reconocer qué es**; si Vision no está disponible (simulador), modela el fondo desde los bordes de la foto |
 | Textura retro | Procesado propio de píxeles (CoreGraphics) | Baja resolución, color de 15 bits con tramado Bayer 4×4 como la PS1, contorno oscuro |
 | Modelo 3D | **Malla generada por código** + **SceneKit** | Silueta “inflada” → malla facetada de ~1–3 k triángulos, normales planas, texturas *nearest* |
 | Render 240p | `SCNView` con `contentScaleFactor` < 1 y filtro *nearest* | Pixelado auténtico en cualquier pantalla, a 30 fps (ahorra batería) |
@@ -155,7 +184,7 @@ DawiDawi/
 
 ## 9. Notas
 
-- Este proyecto se ha escrito sin poder compilarlo (en Windows). Si Xcode muestra algún error
-  puntual de compilación, suele ser trivial de corregir; las APIs usadas son estándar de iOS 17.
+- Se compila y se prueba en cada push con GitHub Actions (Xcode 26, simulador de iPhone).
+- Modo demo (solo para CI): argumentos `-demoScene`, `-demoImages`, `-demoRarity` (ver `App/DemoMode.swift`).
 - Rendimiento: el render 3D va a 30 fps y a ~0,8× de resolución interna, la malla tiene pocos
   triángulos y las texturas son diminutas, así que funciona bien incluso en iPhones antiguos con iOS 17.
