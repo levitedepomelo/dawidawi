@@ -61,8 +61,8 @@ struct RootView: View {
         case "settings": tab = .settings
         case "capture", "reveal": showCapture = true
         case "detail":
-            let first = try? context.fetch(FetchDescriptor<Creature>(sortBy: [SortDescriptor(\.number)])).first
-            if let first { path.append(first) }
+            let all = (try? context.fetch(FetchDescriptor<Creature>(sortBy: [SortDescriptor(\.number)]))) ?? []
+            if let target = all.first(where: { $0.number == DemoMode.detailNumber }) ?? all.first { path.append(target) }
         default: break
         }
     }
@@ -312,7 +312,8 @@ struct CreatureModelView: View {
             let rig = CreatureStore.rig(creatureID)
             stage = RetroStage(sprite: sprite, rarity: rarity, seed: seed,
                                meshDensity: settings.meshDensity, showcase: showcase,
-                               rig: rig, photo: rig != nil ? CreatureStore.photo(creatureID) : nil)
+                               rig: rig, photo: rig != nil ? CreatureStore.photo(creatureID) : nil,
+                               cutout: CreatureStore.cutout(creatureID), face: CreatureStore.face(creatureID))
         }
     }
 }

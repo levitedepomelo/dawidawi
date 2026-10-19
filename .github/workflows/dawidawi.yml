@@ -84,6 +84,8 @@ jobs:
               "https://commons.wikimedia.org/wiki/Special:FilePath/$f?width=1200" -o "$RUNNER_TEMP/photos/$i.jpg" \
               || rm -f "$RUNNER_TEMP/photos/$i.jpg"
           done
+          # Foto real de un usuario (gato naranja y blanco) como 2.ª foto de prueba → criatura #002
+          cp .github/demo/user-cat.jpg "$RUNNER_TEMP/photos/1b.jpg"
           ls -la "$RUNNER_TEMP/photos"
           PHOTOS=$(ls "$RUNNER_TEMP"/photos/*.jpg | paste -sd, -)
           test -n "$PHOTOS"
@@ -107,6 +109,9 @@ jobs:
           run_scene title 4;       shot 00-titulo
           run_scene detail 12;     shot 02-ficha
           sleep 10;                shot 02-ficha-b
+          run_scene detail 12 -demoNumber 2; shot 02-ficha-gato-naranja
+          sleep 3;                 shot 02-ficha-gato-naranja-b
+          sleep 3;                 shot 02-ficha-gato-naranja-c
           run_scene stats 5;       shot 03-stats
           run_scene settings 4;    shot 04-ajustes
           run_scene capture 4;     shot 05-camara

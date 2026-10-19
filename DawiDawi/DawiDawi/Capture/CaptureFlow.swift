@@ -88,13 +88,16 @@ final class CaptureFlow: ObservableObject {
         let rigData = generated.rig ?? rigOverride
         let rig = rigData.flatMap(CreatureRig.decode)
         let stage = RetroStage(sprite: generated.sprite, rarity: rarity, seed: seed,
-                               meshDensity: meshDensity, showcase: true, rig: rig, photo: generated.photo)
+                               meshDensity: meshDensity, showcase: true, rig: rig, photo: generated.photo,
+                               cutout: generated.cutout, face: generated.face)
         let thumbStage = RetroStage(sprite: generated.sprite, rarity: rarity, seed: seed,
-                                    meshDensity: meshDensity, showcase: false, rig: rig, photo: generated.photo)
+                                    meshDensity: meshDensity, showcase: false, rig: rig, photo: generated.photo,
+                                    cutout: generated.cutout, face: generated.face)
         let thumb = thumbStage.snapshot()
 
         try CreatureStore.save(photo: generated.photo, sprite: generated.sprite, thumb: thumb, id: creature.id)
         if let rigData, rig != nil { try CreatureStore.saveRig(rigData, id: creature.id) }
+        if let cutout = generated.cutout { try CreatureStore.saveCutout(cutout, face: generated.face, id: creature.id) }
         context.insert(creature)
         try context.save()
         return (creature, stage)

@@ -17,17 +17,118 @@ enum FigureBuilder {
         let triangleCount: Int
     }
 
-    /// Recortes de textura sacados del sprite (coordenadas de píxel, origen arriba a la izquierda).
+    /// Recortes de textura sacados de la foto del sujeto.
     private struct Crops {
         let face: CGImage
+        let headFur: CGImage
+        let chest: CGImage
         let fur: CGImage
         let lower: CGImage
         let ear: CGImage
     }
 
-    static func build(sprite: CGImage, seed: Int) -> Figure? {
+    /// Fuente de texturas: el recorte del sujeto a buena resolución (sin tramado ni contorno), con el
+    /// fondo transparente rellenado con los colores del propio animal para que ningún recorte
+    /// muestre zonas negras.
+    private struct TextureSource {
+        let image: CGImage
+        let alpha: PixelBuffer
+        let minX: Int, minY: Int, maxX: Int, maxY: Int
+        var bw: Int { maxX - minX + 1 }
+        var bh: Int { maxY - minY + 1 }
+
+        init?(_ source: CGImage) {
+            guard let original = PixelBuffer(exact: source) else { return nil }
+            alpha = original
+            let w = original.width, h = original.height
+            var x0 = w, y0 = h, x1 = -1, y1 = -1
+            for y in 0..<h { for x in 0..<w where original.data[(y * w + x) * 4 + 3] > 60 {
+                x0 = min(x0, x); x1 = max(x1, x); y0 = min(y0, y); y1 = max(y1, y)
+            } }
+            guard x1 > x0 + 3, y1 > y0 + 3 else { return nil }
+            minX = x0; minY = y0; maxX = x1; maxY = y1
+
+            // Relleno: varias pasadas de dilatación y, lo que quede, con el color medio del sujeto
+            var buf = original
+            var sum = [0, 0, 0], count = 0
+            for i in stride(from: 0, to: buf.data.count, by: 4) {
+                if buf.data[i + 3] > 60 {
+                    buf.data[i + 3] = 255
+                    sum[0] += Int(buf.data[i]); sum[1] += Int(buf.data[i + 1]); sum[2] += Int(buf.data[i + 2]); count += 1
+                } else {
+                    buf.data[i + 3] = 0
+                }
+            }
+            for _ in 0..<12 {
+                let src = buf
+                var changed = false
+                for y in 0..<h { for x in 0..<w where src.data[(y * w + x) * 4 + 3] == 0 {
+                    var r = 0, g = 0, b = 0, n = 0
+                    for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+                        let nx = x + dx, ny = y + dy
+                        guard nx >= 0, ny >= 0, nx < w, ny < h else { continue }
+                        let j = (ny * w + nx) * 4
+                        if src.data[j + 3] > 0 { r += Int(src.data[j]); g += Int(src.data[j + 1]); b += Int(src.data[j + 2]); n += 1 }
+                    }
+                    if n > 0 {
+                        let i = (y * w + x) * 4
+                        buf.data[i] = UInt8(r / n); buf.data[i + 1] = UInt8(g / n); buf.data[i + 2] = UInt8(b / n)
+                        buf.data[i + 3] = 255
+                        changed = true
+                    }
+                } }
+                if !changed { break }
+            }
+            let avg = count > 0 ? sum.map { UInt8($0 / count) } : [128, 128, 128]
+            for i in stride(from: 0, to: buf.data.count, by: 4) where buf.data[i + 3] == 0 {
+                buf.data[i] = avg[0]; buf.data[i + 1] = avg[1]; buf.data[i + 2] = avg[2]; buf.data[i + 3] = 255
+            }
+            guard let filled = buf.makeCGImage() else { return nil }
+            image = filled
+        }
+
+        /// Centro X (en píxeles) de la masa del sujeto entre dos fracciones de altura.
+        func massCenterX(from f0: Double, to f1: Double) -> Int {
+            let w = alpha.width
+            var sum = 0, n = 0
+            let ya = minY + Int(Double(bh) * f0), yb = min(maxY, minY + Int(Double(bh) * f1))
+            if ya <= yb {
+                for y in ya...yb { for x in minX...maxX where alpha.data[(y * w + x) * 4 + 3] > 60 { sum += x; n += 1 } }
+            }
+            return n > 0 ? sum / n : (minX + maxX) / 2
+        }
+
+        /// Recorte en píxeles → textura de 64 px como máximo, con niveles ajustados.
+        func crop(_ rect: CGRect) -> CGImage {
+            let bounds = CGRect(x: 0, y: 0, width: image.width, height: image.height)
+            var r = rect.integral.intersection(bounds)
+            if r.width < 2 || r.height < 2 { r = CGRect(x: minX, y: minY, width: bw, height: bh) }
+            let piece = image.cropping(to: r) ?? image
+            let scale = min(1, 64 / Double(max(piece.width, piece.height)))
+            let tw = max(2, Int(Double(piece.width) * scale)), th = max(2, Int(Double(piece.height) * scale))
+            guard let ctx = CGContext(data: nil, width: tw, height: th, bitsPerComponent: 8, bytesPerRow: tw * 4,
+                                      space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return piece }
+            ctx.interpolationQuality = .high
+            ctx.draw(piece, in: CGRect(x: 0, y: 0, width: tw, height: th))
+            guard let small = ctx.makeImage() else { return piece }
+            return FigureBuilder.autoLevels(small) ?? small
+        }
+
+        /// Recorte en fracciones de la caja del sujeto.
+        func crop(fx: Double, fy: Double, fw: Double, fh: Double) -> CGImage {
+            crop(CGRect(x: Double(minX) + fx * Double(bw), y: Double(minY) + fy * Double(bh),
+                        width: fw * Double(bw), height: fh * Double(bh)))
+        }
+    }
+
+    /// - Parameters:
+    ///   - sprite: textura pixelada con transparencia (para analizar la forma).
+    ///   - cutout: recorte del sujeto a buena resolución (para las texturas). Si falta, se usa el sprite.
+    ///   - face: rectángulo normalizado de la cara dentro de `cutout` (Vision), si se encontró.
+    static func build(sprite: CGImage, cutout: CGImage? = nil, face: CGRect? = nil, seed: Int) -> Figure? {
         guard let buf = PixelBuffer(cgImage: sprite) else { return nil }
-        // Caja del sujeto
+        // Caja del sujeto en el sprite (forma)
         var minX = buf.width, minY = buf.height, maxX = -1, maxY = -1
         for y in 0..<buf.height { for x in 0..<buf.width where buf.alpha(x, y) > 0 {
             minX = min(minX, x); maxX = max(maxX, x); minY = min(minY, y); maxY = max(maxY, y)
@@ -43,7 +144,6 @@ enum FigureBuilder {
         let hasTail = kinds.contains(.side)
         let quadruped = aspect > 1.25
 
-        guard let opaque = RetroStylizer.dilatedOpaque(sprite) else { return nil }
         // Lado de la cabeza en siluetas alargadas: el extremo cuyo punto más alto está más arriba
         func topRow(fromX: Int, toX: Int) -> Int {
             for y in minY...maxY { for x in fromX...toX where buf.alpha(x, y) > 0 { return y } }
@@ -52,32 +152,43 @@ enum FigureBuilder {
         let third = max(1, bw / 3)
         let headOnRight = topRow(fromX: maxX - third, toX: maxX) < topRow(fromX: minX, toX: minX + third)
 
-        func crop(_ x: Int, _ y: Int, _ w: Int, _ h: Int) -> CGImage {
-            let rx = max(minX, min(x, maxX - 1)), ry = max(minY, min(y, maxY - 1))
-            let rw = max(2, min(w, maxX + 1 - rx)), rh = max(2, min(h, maxY + 1 - ry))
-            let piece = opaque.cropping(to: CGRect(x: rx, y: ry, width: rw, height: rh)) ?? opaque
-            return autoLevels(piece) ?? piece
+        guard let tex = TextureSource(cutout ?? sprite) ?? TextureSource(sprite) else { return nil }
+        let tw = Double(tex.bw), th = Double(tex.bh)
+        // Cara detectada por Vision (en píxeles del recorte), si la hay
+        let faceRect: CGRect? = (cutout != nil ? face : nil).map {
+            CGRect(x: $0.minX * Double(tex.image.width), y: $0.minY * Double(tex.image.height),
+                   width: $0.width * Double(tex.image.width), height: $0.height * Double(tex.image.height))
         }
 
         let crops: Crops
         if quadruped {
-            let hs = Int(Float(bh) * 0.62)
-            let hx = headOnRight ? maxX + 1 - hs : minX
-            crops = Crops(face: crop(hx, minY, hs, hs),
-                          fur: crop(minX + bw / 4, minY + bh / 4, bw / 2, bh / 2),
-                          lower: crop(minX + bw / 4, maxY - bh / 4, bw / 2, bh / 4),
-                          ear: crop(hx + hs / 4, minY, hs / 2, max(2, hs / 4)))
+            let s = min(th * 0.6, tw * 0.45)
+            let hx = headOnRight ? Double(tex.maxX) - s : Double(tex.minX)
+            let head = faceRect ?? CGRect(x: hx, y: Double(tex.minY), width: s, height: s)
+            crops = Crops(face: tex.crop(head),
+                          headFur: tex.crop(CGRect(x: head.minX, y: head.minY, width: head.width, height: head.height * 0.3)),
+                          chest: tex.crop(fx: 0.3, fy: 0.3, fw: 0.4, fh: 0.4),
+                          fur: tex.crop(fx: 0.35, fy: 0.25, fw: 0.3, fh: 0.25),
+                          lower: tex.crop(fx: 0.25, fy: 0.75, fw: 0.5, fh: 0.25),
+                          ear: tex.crop(CGRect(x: head.minX, y: Double(tex.minY), width: head.width, height: max(4, head.minY - Double(tex.minY) + head.height * 0.2))))
         } else {
-            // Cara: parte alta (dejando fuera la punta de las orejas), centrada en la masa de píxeles
-            let earCut = hasEars ? Int(Float(bh) * 0.10) : 0
-            let hs = min(bw, Int(Float(bh) * 0.48))
-            var sumX = 0, n = 0
-            for y in minY..<(minY + bh / 2) { for x in minX...maxX where buf.alpha(x, y) > 0 { sumX += x; n += 1 } }
-            let cx = n > 0 ? sumX / n : (minX + maxX) / 2
-            crops = Crops(face: crop(cx - hs / 2, minY + earCut, hs, hs),
-                          fur: crop(minX + bw / 5, minY + bh / 2, bw * 3 / 5, bh / 3),
-                          lower: crop(minX + bw / 4, maxY - bh / 5, bw / 2, bh / 5),
-                          ear: crop(cx - hs / 2, minY, hs, max(2, earCut + 2)))
+            // Muñeco erguido: cara en la parte alta, centrada en la masa del sujeto
+            let s = min(th * 0.36, tw * 0.95)
+            let cx = Double(tex.massCenterX(from: 0.1, to: 0.4))
+            let top = Double(tex.minY) + th * (hasEars ? 0.11 : 0.03)
+            let head = faceRect ?? CGRect(x: cx - s / 2, y: top, width: s, height: s)
+            let bodyCX = Double(tex.massCenterX(from: 0.45, to: 0.8))
+            crops = Crops(face: tex.crop(head),
+                          headFur: tex.crop(CGRect(x: head.minX + head.width * 0.1, y: head.minY,
+                                                   width: head.width * 0.8, height: head.height * 0.28)),
+                          chest: tex.crop(CGRect(x: bodyCX - tw * 0.22, y: Double(tex.minY) + th * 0.45,
+                                                 width: tw * 0.44, height: th * 0.3)),
+                          fur: tex.crop(CGRect(x: bodyCX - tw * 0.45, y: Double(tex.minY) + th * 0.5,
+                                               width: tw * 0.25, height: th * 0.25)),
+                          lower: tex.crop(CGRect(x: bodyCX - tw * 0.25, y: Double(tex.maxY) - th * 0.18,
+                                                 width: tw * 0.5, height: th * 0.18)),
+                          ear: tex.crop(CGRect(x: head.minX, y: Double(tex.minY),
+                                               width: head.width, height: max(4, head.minY - Double(tex.minY) + head.height * 0.15))))
         }
 
         var rng = SeededGenerator(seed: UInt64(truncatingIfNeeded: seed &* 31 &+ 5))
@@ -103,7 +214,7 @@ enum FigureBuilder {
             let dir: Float = headOnRight ? 1 : -1
 
             let body = add(box(bottom: [bodyLen, bodyD], top: [bodyLen * 0.94, bodyD * 0.88], height: bodyH,
-                               materials: [mats.fur, mats.furSide, mats.furDark, mats.furSide, mats.furSide, mats.furDark]),
+                               materials: [mats.furPhoto, mats.furSide, mats.furDark, mats.furSide, mats.furSide, mats.furDark]),
                            to: root, at: SCNVector3(0, legH, 0))
             // Las caras laterales (±z) muestran el cuerpo de la foto
             body.geometry?.materials = [mats.furPhoto, mats.furSide, mats.furPhotoBack, mats.furSide, mats.furSide, mats.furDark]
@@ -124,9 +235,9 @@ enum FigureBuilder {
             root.addChildNode(neck)
             // Cabeza: la cara de la foto en los lados (perfil) y en el frente
             let head = add(box(bottom: [hs, hs * 0.9], top: [hs * 0.9, hs * 0.8], height: hs * 0.95,
-                               materials: [mats.face, mats.furSide, mats.faceMirror, mats.furSide, mats.furSide, mats.furDark]),
+                               materials: [mats.face, mats.headFur, mats.faceMirror, mats.headFur, mats.headFur, mats.headFurDark]),
                            to: neck, at: SCNVector3(dir * hs * 0.25, 0, 0))
-            if !headOnRight { head.geometry?.materials = [mats.faceMirror, mats.furSide, mats.face, mats.furSide, mats.furSide, mats.furDark] }
+            if !headOnRight { head.geometry?.materials = [mats.faceMirror, mats.headFur, mats.face, mats.headFur, mats.headFur, mats.headFurDark] }
             swing(neck, axis: SCNVector3(0, 0, 1), amplitude: 0.06, period: 2.4, phase: 0)
             if hasEars {
                 for ez: Float in [-1, 1] {
@@ -178,7 +289,7 @@ enum FigureBuilder {
             neck.position = SCNVector3(0, legH + bodyH - 0.04, 0)
             root.addChildNode(neck)
             let head = add(box(bottom: [hw * 0.92, hd], top: [hw, hd * 0.95], height: hh,
-                               materials: [mats.face, mats.furSide, mats.furDark, mats.furSide, mats.furSide, mats.furDark]),
+                               materials: [mats.face, mats.headFur, mats.headFurDark, mats.headFur, mats.headFur, mats.headFurDark]),
                            to: neck, at: SCNVector3(0, 0, 0))
             swing(neck, axis: SCNVector3(0, 0, 1), amplitude: 0.07, period: 2.6, phase: 0)
             if hasEars {
@@ -205,7 +316,7 @@ enum FigureBuilder {
 
     /// Estira el contraste de cada recorte (percentiles 4–96 %) para que los animales oscuros
     /// o muy claros sigan mostrando sus rasgos en la textura low-res.
-    private static func autoLevels(_ image: CGImage) -> CGImage? {
+    static func autoLevels(_ image: CGImage) -> CGImage? {
         guard var buf = PixelBuffer(exact: image) else { return nil }
         var lum: [Double] = []
         lum.reserveCapacity(buf.width * buf.height)
@@ -214,9 +325,9 @@ enum FigureBuilder {
         }
         guard lum.count > 8 else { return image }
         lum.sort()
-        let lo = lum[lum.count * 4 / 100], hi = lum[lum.count * 96 / 100]
-        guard hi - lo > 8 else { return image }
-        let targetLo = 22.0, targetHi = 238.0
+        let lo = lum[lum.count * 2 / 100], hi = lum[lum.count * 98 / 100]
+        guard hi - lo > 8, hi - lo < 200 else { return image }
+        let targetLo = 14.0, targetHi = 246.0
         let gain = (targetHi - targetLo) / (hi - lo)
         for i in stride(from: 0, to: buf.data.count, by: 4) where buf.data[i + 3] > 0 {
             for c in 0..<3 {
@@ -230,23 +341,22 @@ enum FigureBuilder {
     // MARK: - Materiales
 
     private struct Materials {
-        let face, faceMirror, furPhoto, furPhotoBack, fur, furSide, furDark, lower, ear: SCNMaterial
+        let face, faceMirror, headFur, headFurDark, furPhoto, furPhotoBack, furSide, furDark, lower, ear: SCNMaterial
 
         init(_ c: Crops) {
             face = RetroStage.pixelMaterial(c.face)
             faceMirror = RetroStage.pixelMaterial(c.face)
             faceMirror.diffuse.contentsTransform = SCNMatrix4Mult(SCNMatrix4MakeScale(-1, 1, 1), SCNMatrix4MakeTranslation(1, 0, 0))
             faceMirror.diffuse.wrapS = .repeat
-            furPhoto = RetroStage.pixelMaterial(c.fur)
+            headFur = RetroStage.pixelMaterial(c.headFur)
+            headFurDark = RetroStage.pixelMaterial(c.headFur)
+            headFurDark.multiply.contents = UIColor(white: 0.78, alpha: 1)
+            furPhoto = RetroStage.pixelMaterial(c.chest)       // frente del cuerpo (pecho)
             furPhotoBack = RetroStage.pixelMaterial(c.fur)
-            furPhotoBack.multiply.contents = UIColor(white: 0.82, alpha: 1)
-            fur = RetroStage.pixelMaterial(c.fur)
-            furSide = RetroStage.pixelMaterial(c.fur)
-            furSide.diffuse.contentsTransform = SCNMatrix4MakeScale(0.5, 0.5, 1) // pelaje "ampliado"
-            furSide.diffuse.wrapS = .repeat
-            furSide.diffuse.wrapT = .repeat
+            furPhotoBack.multiply.contents = UIColor(white: 0.85, alpha: 1)
+            furSide = RetroStage.pixelMaterial(c.fur)          // laterales, brazos y cola
             furDark = RetroStage.pixelMaterial(c.fur)
-            furDark.multiply.contents = UIColor(white: 0.7, alpha: 1)
+            furDark.multiply.contents = UIColor(white: 0.75, alpha: 1)
             lower = RetroStage.pixelMaterial(c.lower)
             ear = RetroStage.pixelMaterial(c.ear)
         }

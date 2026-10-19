@@ -20,6 +20,8 @@ enum DemoMode {
     static let imagePaths: [String] = value("-demoImages")?.split(separator: ",").map(String.init) ?? []
     static let forcedRarity: Rarity? = value("-demoRarity").flatMap(Rarity.init(rawValue:))
     /// Rig de ejemplo (como el que devolvería el escultor IA) para la primera foto de prueba.
+    /// Número de criatura que abre la escena "detail" (por defecto la #001).
+    static let detailNumber: Int = value("-demoNumber").flatMap(Int.init) ?? 1
     static let rigData: Data? = value("-demoRig").flatMap { try? Data(contentsOf: URL(fileURLWithPath: $0)) }
 
     static func image(at index: Int) -> UIImage? {

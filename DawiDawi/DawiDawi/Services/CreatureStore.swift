@@ -32,6 +32,28 @@ enum CreatureStore {
     static func spriteURL(_ id: UUID) -> URL { directory(for: id).appendingPathComponent("sprite.png") }
     static func thumbURL(_ id: UUID) -> URL { directory(for: id).appendingPathComponent("thumb.png") }
     static func rigURL(_ id: UUID) -> URL { directory(for: id).appendingPathComponent("rig.json") }
+    static func cutoutURL(_ id: UUID) -> URL { directory(for: id).appendingPathComponent("cutout.png") }
+    static func faceURL(_ id: UUID) -> URL { directory(for: id).appendingPathComponent("face.json") }
+
+    /// Recorte del sujeto (texturas del muñeco) y rectángulo de su cara, si se localizó.
+    static func saveCutout(_ image: CGImage, face: CGRect?, id: UUID) throws {
+        if let data = UIImage(cgImage: image).pngData() { try data.write(to: cutoutURL(id), options: .atomic) }
+        if let face {
+            let values = [face.minX, face.minY, face.width, face.height].map { Double($0) }
+            try JSONSerialization.data(withJSONObject: values).write(to: faceURL(id), options: .atomic)
+        }
+    }
+
+    static func cutout(_ id: UUID) -> CGImage? {
+        guard let data = try? Data(contentsOf: cutoutURL(id)) else { return nil }
+        return UIImage(data: data)?.cgImage
+    }
+
+    static func face(_ id: UUID) -> CGRect? {
+        guard let data = try? Data(contentsOf: faceURL(id)),
+              let v = try? JSONSerialization.jsonObject(with: data) as? [Double], v.count == 4 else { return nil }
+        return CGRect(x: v[0], y: v[1], width: v[2], height: v[3])
+    }
 
     static func saveRig(_ data: Data, id: UUID) throws {
         try data.write(to: rigURL(id), options: .atomic)

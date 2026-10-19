@@ -13,11 +13,15 @@ final class RetroStage {
     private(set) var triangleCount = 0
     private let rig: CreatureRig?
     private let photo: UIImage?
+    private let cutout: CGImage?
+    private let face: CGRect?
 
     init(sprite: CGImage, rarity: Rarity, seed: Int, meshDensity: Int, showcase: Bool,
-         rig: CreatureRig? = nil, photo: UIImage? = nil) {
+         rig: CreatureRig? = nil, photo: UIImage? = nil, cutout: CGImage? = nil, face: CGRect? = nil) {
         self.rig = rig
         self.photo = photo
+        self.cutout = cutout
+        self.face = face
         self.rarity = rarity
         buildEnvironment()
         buildCreature(sprite: sprite, seed: seed, meshDensity: meshDensity)
@@ -75,7 +79,7 @@ final class RetroStage {
         if let rig, let photo, let sculpted = RigBuilder.build(rig: rig, photo: photo) {
             figure = sculpted
         } else if (UserDefaults.standard.string(forKey: "gen.style") ?? "figure") == "figure" {
-            figure = FigureBuilder.build(sprite: sprite, seed: seed)
+            figure = FigureBuilder.build(sprite: sprite, cutout: cutout, face: face, seed: seed)
         } else {
             figure = nil
         }

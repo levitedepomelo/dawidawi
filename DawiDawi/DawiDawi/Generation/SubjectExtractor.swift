@@ -87,6 +87,20 @@ enum SubjectExtractor {
     }
 }
 
+extension SubjectExtractor {
+    /// Copia reducida (conserva la transparencia) para guardar como textura de buena calidad.
+    static func downscaled(_ image: CGImage, maxDimension: Int) -> CGImage? {
+        let scale = min(1, Double(maxDimension) / Double(max(image.width, image.height)))
+        let w = max(1, Int(Double(image.width) * scale)), h = max(1, Int(Double(image.height) * scale))
+        guard let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+                                  space: CGColorSpaceCreateDeviceRGB(),
+                                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        ctx.interpolationQuality = .high
+        ctx.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
+        return ctx.makeImage()
+    }
+}
+
 extension UIImage {
     /// Corrige la orientación EXIF y limita el tamaño máximo (rendimiento y almacenamiento).
     func normalized(maxDimension: CGFloat = 1280) -> UIImage {

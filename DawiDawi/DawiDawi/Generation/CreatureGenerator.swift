@@ -24,6 +24,9 @@ struct GeneratedCreature {
     let remoteFallbackReason: String?
     /// JSON del muñeco diseñado por el escultor IA (si se usó y funcionó).
     var rig: Data? = nil
+    /// Recorte del sujeto a buena resolución (texturas del muñeco) y su cara localizada por Vision.
+    var cutout: CGImage? = nil
+    var face: CGRect? = nil
 }
 
 enum GenerationError: LocalizedError {
@@ -95,6 +98,12 @@ enum CreatureGenerator {
         var result = GeneratedCreature(photo: normalized, sprite: sprite, usedRemote: usedRemote,
                                        remoteFallbackReason: fallbackReason)
         result.rig = rig
+        let cut = await Task.detached(priority: .userInitiated) { () -> (CGImage?, CGRect?) in
+            let small = SubjectExtractor.downscaled(subject, maxDimension: 384)
+            return (small, small.flatMap(FaceLocator.faceRect(in:)))
+        }.value
+        result.cutout = cut.0
+        result.face = cut.1
         return result
     }
 }
