@@ -98,6 +98,51 @@ enum FigureBuilder {
             return n > 0 ? sum / n : (minX + maxX) / 2
         }
 
+        /// Cabeza a partir del perfil de anchura de la silueta, fila a fila:
+        /// las orejas son dos manchas separadas arriba; la cara empieza donde se unen y termina en el
+        /// cuello (la fila más estrecha antes de que el cuerpo vuelva a ensancharse).
+        func headRect() -> CGRect {
+            let w = alpha.width
+            var left = [Int](), right = [Int](), runs = [Int]()
+            for y in minY...maxY {
+                var l = -1, r = -1, n = 0, inside = false
+                for x in minX...maxX {
+                    let on = alpha.data[(y * w + x) * 4 + 3] > 60
+                    if on { if l < 0 { l = x }; r = x; if !inside { n += 1 } }
+                    inside = on
+                }
+                left.append(l); right.append(r); runs.append(n)
+            }
+            let rows = left.count
+            func width(_ i: Int) -> Int { left[i] < 0 ? 0 : right[i] - left[i] + 1 }
+            // Base de las orejas: primera fila con una sola mancha ancha tras las puntas
+            var earBase = 0
+            if let firstSplit = runs.prefix(rows / 3).firstIndex(where: { $0 >= 2 }),
+               let joined = runs[firstSplit..<min(rows, rows / 2)].firstIndex(where: { $0 == 1 }) {
+                earBase = joined
+            }
+            // Cuello: anchura mínima (suavizada) entre el 12 % y el 55 % de la altura, por debajo de la cara
+            let start = min(rows - 1, earBase + max(2, rows / 10)), end = min(rows - 1, earBase + rows * 45 / 100)
+            var neck = min(rows - 1, earBase + rows / 3)
+            if start < end {
+                var best = Int.max
+                for i in start...end {
+                    let a = max(0, i - 1), b = min(rows - 1, i + 1)
+                    let smooth = (width(a) + width(i) + width(b)) / 3
+                    if smooth < best { best = smooth; neck = i }
+                }
+                // Si no hay estrechamiento claro, el cuello está a ~1/3 de la altura
+                let headWidth = (earBase..<start).map(width).max() ?? 0
+                if best > headWidth * 9 / 10 { neck = min(rows - 1, earBase + rows * 30 / 100) }
+            }
+            let x0 = (earBase...neck).compactMap { left[$0] >= 0 ? left[$0] : nil }.min() ?? minX
+            let x1 = (earBase...neck).map { right[$0] }.max() ?? maxX
+            let faceW = Double(x1 - x0 + 1), faceH = Double(neck - earBase + 1)
+            let side = max(4, min(max(faceW, faceH), Double(bw)))
+            let cx = Double(x0 + x1) / 2, top = Double(minY + earBase)
+            return CGRect(x: cx - side / 2, y: top - side * 0.04, width: side, height: side)
+        }
+
         /// Recorte en píxeles → textura de 64 px como máximo, con niveles ajustados.
         func crop(_ rect: CGRect) -> CGImage {
             let bounds = CGRect(x: 0, y: 0, width: image.width, height: image.height)
@@ -173,10 +218,7 @@ enum FigureBuilder {
                           ear: tex.crop(CGRect(x: head.minX, y: Double(tex.minY), width: head.width, height: max(4, head.minY - Double(tex.minY) + head.height * 0.2))))
         } else {
             // Muñeco erguido: cara en la parte alta, centrada en la masa del sujeto
-            let s = min(th * 0.36, tw * 0.95)
-            let cx = Double(tex.massCenterX(from: 0.1, to: 0.4))
-            let top = Double(tex.minY) + th * (hasEars ? 0.11 : 0.03)
-            let head = faceRect ?? CGRect(x: cx - s / 2, y: top, width: s, height: s)
+            let head = faceRect ?? tex.headRect()
             let bodyCX = Double(tex.massCenterX(from: 0.45, to: 0.8))
             crops = Crops(face: tex.crop(head),
                           headFur: tex.crop(CGRect(x: head.minX + head.width * 0.1, y: head.minY,
