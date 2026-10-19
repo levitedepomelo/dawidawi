@@ -24,7 +24,18 @@ enum RigBuilder {
                 texMat = RetroStage.pixelMaterial(crop)
             }
             let front = texMat ?? colorMat
-            let other = part.texture_faces == "all" ? (texMat ?? colorMat) : colorMat
+            var other = colorMat
+            if part.texture_faces == "all", let texMat {
+                other = texMat
+            } else if part.texture_faces == "front", let texture = texMat?.diffuse.contents {
+                // Laterales y nuca: parche ampliado de la parte alta de la misma textura (pelaje),
+                // algo más oscuro, para que la pieza no quede de color plano por detrás.
+                let patch = RetroStage.pixelMaterial(texture)
+                patch.diffuse.contentsTransform = SCNMatrix4Mult(SCNMatrix4MakeScale(0.35, 0.25, 1),
+                                                                 SCNMatrix4MakeTranslation(0.32, 0.02, 0))
+                patch.multiply.contents = UIColor(white: 0.82, alpha: 1)
+                other = patch
+            }
 
             let geoNode = SCNNode()
             switch part.shape {
