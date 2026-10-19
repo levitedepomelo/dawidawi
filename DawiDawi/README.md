@@ -81,38 +81,36 @@ No hace falta ningún paquete externo: solo frameworks de Apple.
 
 ## 3. Cómo funciona la generación
 
-```
-Foto ──► (opcional) IA remota: "redibuja este sujeto como personaje PS1/N64"
-     ──► Vision: recorte del sujeto (máscara de primer plano, sin clasificar)
-     ──► Sprite retro 48–112 px: saturación, paleta reducida + tramado Bayer, borde duro, contorno
-     ──► Malla 3D: rejilla de 18–42 celdas → transformada de distancia → cúpula delante/detrás
-                    → triángulos con normales planas + “jitter” (facetas de modelado a mano)
-     ──► Escenario SceneKit: suelo de ajedrez, pared de madera, niebla, luz por vértice,
-                              aura de color según rareza y partículas pixeladas
-```
+Hay tres motores (**Ajustes → Motor de generación**). Todos producen un muñeco low-poly estilo PS1/N64
+texturizado con la propia foto, sobre un escenario de cielo y césped:
 
-- **Motor local (por defecto)**: no necesita internet ni cuentas. Es la alternativa funcional siempre disponible.
-- **IA remota + local**: si está configurada, la foto se manda al servicio de IA para obtener un render
-  estilo videojuego y **después** se modela en 3D en el iPhone. Si falla (sin conexión, sin key, error del
-  servicio), **se usa el motor local automáticamente** y se avisa en la revelación.
+| Motor | Qué hace | Necesita |
+|---|---|---|
+| **Local** (por defecto) | Recorta al animal (Vision o, si no está disponible, segmentación por color), analiza la **forma** de la silueta (alargada → cuadrúpedo; alta → muñeco erguido; apéndices arriba → orejas; lateral → cola) y arma un muñeco de bloques: cabeza con la cara de la foto, cuerpo, patas/brazos, orejas y cola animadas. | Nada (sin conexión) |
+| **Escultor IA** | Claude (`claude-opus-5-5`) mira la foto y devuelve, como JSON validado por esquema, un muñeco de 6–20 piezas (cajas, cuñas, pirámides, cilindros, conos, esferas low-poly) con la **región de la foto** que texturiza cada pieza: la cara va al frente de la cabeza, el pelaje al cuerpo, el hocico, las orejas, las alas, el pico… Se guarda como `rig.json`. | API key de Anthropic |
+| **IA imagen** | Un servicio de imagen redibuja la foto con estilo PS1 y después se modela en local. | API key compatible con `/v1/images/edits` |
 
-La malla se reconstruye al mostrar cada criatura a partir de su sprite (es determinista gracias a su
-`seed`), así que la colección ocupa poco: `photo.jpg`, `sprite.png` y `thumb.png` por criatura.
+Si un motor con IA falla (sin conexión, sin key, error del servicio), **se usa el motor local automáticamente**
+y se avisa en la revelación. Ningún motor nombra ni clasifica al animal: solo se trabaja con formas y colores.
+
+En **Ajustes → Estilo del modelo 3D** puedes elegir entre "Muñeco" (bloques, por defecto) y "Silueta"
+(la silueta inflada, más orgánica). Por criatura se guardan `photo.jpg`, `sprite.png`, `thumb.png` y,
+con el escultor, `rig.json`.
 
 ---
 
-## 4. Configurar la IA remota (opcional)
+## 4. Configurar los motores con IA (opcional)
 
-1. Consigue una API key de un servicio de edición de imágenes compatible con la API de OpenAI
-   (`https://api.openai.com/v1/images/edits`, modelo `gpt-image-1` por defecto).
-2. En la app: **Ajustes → Motor de generación → "IA remota + local"**.
-3. Pega la key y pulsa **GUARDAR KEY** (se guarda cifrada en el Llavero, nunca en texto plano).
-4. Opcional: cambia **Modelo** y **Endpoint** si usas otro modelo o un proxy compatible
-   (petición `multipart/form-data` con `model`, `prompt`, `image`, `size`; respuesta `data[0].b64_json` o `data[0].url`).
+### Escultor IA (recomendado para los modelos más fieles)
+1. Crea una API key en **console.anthropic.com → API Keys** (necesita saldo; cada criatura cuesta céntimos).
+2. En la app: **Ajustes → Motor de generación → "Escultor IA"**, pega la key y pulsa **GUARDAR KEY**
+   (se guarda cifrada en el Llavero del iPhone).
+3. Captura: mientras la app recorta la foto, Claude diseña el muñeco (unos segundos). El prompt está en
+   `Generation/SculptorService.swift` y el constructor en `Generation/RigBuilder.swift`.
 
-El prompt (en `RemoteRenderService.swift`) solo pide redibujar *"el sujeto principal de la foto"* con estilo
-low-poly de 1997 manteniendo colores y forma: **no pide identificar ni nombrar** nada.
-El coste por imagen depende del proveedor.
+### IA imagen
+1. API key de un servicio compatible con `https://api.openai.com/v1/images/edits` (modelo `gpt-image-1` por defecto).
+2. **Ajustes → Motor de generación → "IA imagen"**, pega la key y, si quieres, cambia **Modelo** y **Endpoint**.
 
 ---
 
@@ -185,6 +183,7 @@ DawiDawi/
 ## 9. Notas
 
 - Se compila y se prueba en cada push con GitHub Actions (Xcode 26, simulador de iPhone).
-- Modo demo (solo para CI): argumentos `-demoScene`, `-demoImages`, `-demoRarity` (ver `App/DemoMode.swift`).
+- Modo demo (solo para CI): argumentos `-demoScene`, `-demoImages`, `-demoRarity` y `-demoRig` (ver `App/DemoMode.swift`).
+  La CI renderiza un rig de ejemplo (`.github/demo/cat-rig.json`) para probar el escultor sin API key.
 - Rendimiento: el render 3D va a 30 fps y a ~0,8× de resolución interna, la malla tiene pocos
   triángulos y las texturas son diminutas, así que funciona bien incluso en iPhones antiguos con iOS 17.
