@@ -24,7 +24,6 @@ struct GenerationOptions: Sendable {
     var mode: GenerationMode
     var apiKey: String?
     var anthropicKey: String?
-    var anthropicKey: String?
     var remoteModel: String
     var remoteEndpoint: String
     var textureResolution: Int
@@ -49,7 +48,6 @@ final class AppSettings: ObservableObject {
     @Published var saveLocation: Bool { didSet { defaults.set(saveLocation, forKey: Keys.location) } }
     @Published var showTitleScreen: Bool { didSet { defaults.set(showTitleScreen, forKey: Keys.title) } }
     @Published private(set) var hasAPIKey: Bool
-    @Published private(set) var hasAnthropicKey: Bool
     @Published private(set) var hasAnthropicKey: Bool
 
     static let defaultEndpoint = "https://api.openai.com/v1/images/edits"
@@ -89,7 +87,6 @@ final class AppSettings: ObservableObject {
         saveLocation = d.object(forKey: Keys.location) as? Bool ?? false
         showTitleScreen = d.object(forKey: Keys.title) as? Bool ?? true
         hasAPIKey = Keychain.read(Keychain.apiKeyAccount) != nil
-        hasAnthropicKey = Keychain.read(Keychain.anthropicAccount) != nil
         hasAnthropicKey = Keychain.read(Keychain.anthropicAccount) != nil
         ChipSynth.shared.enabled = soundEnabled
         Haptics.enabled = hapticsEnabled
@@ -159,20 +156,9 @@ final class AppSettings: ObservableObject {
         hasAnthropicKey = Keychain.read(Keychain.anthropicAccount) != nil
     }
 
-    func setAnthropicKey(_ key: String) {
-        let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty {
-            Keychain.delete(Keychain.anthropicAccount)
-        } else {
-            Keychain.save(trimmed, account: Keychain.anthropicAccount)
-        }
-        hasAnthropicKey = Keychain.read(Keychain.anthropicAccount) != nil
-    }
-
     var generationOptions: GenerationOptions {
         GenerationOptions(mode: generationMode,
                           apiKey: Keychain.read(Keychain.apiKeyAccount),
-                          anthropicKey: Keychain.read(Keychain.anthropicAccount),
                           anthropicKey: Keychain.read(Keychain.anthropicAccount),
                           remoteModel: remoteModel,
                           remoteEndpoint: remoteEndpoint,

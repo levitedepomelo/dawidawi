@@ -5,7 +5,6 @@ import Security
 enum Keychain {
     static let apiKeyAccount = "dawidawi.remote.apikey"
     static let anthropicAccount = "dawidawi.anthropic.apikey"
-    static let anthropicAccount = "dawidawi.anthropic.apikey"
     private static let service = "com.dawidawi.app"
 
     static func save(_ value: String, account: String) {
