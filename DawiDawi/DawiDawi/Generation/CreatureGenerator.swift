@@ -22,6 +22,8 @@ struct GeneratedCreature {
     let usedRemote: Bool
     /// Si el modo remoto falló y se usó el motor local, el motivo (para avisar al usuario).
     let remoteFallbackReason: String?
+    /// JSON del muñeco diseñado por el escultor IA (si se usó y funcionó).
+    var rig: Data? = nil
 }
 
 enum GenerationError: LocalizedError {
@@ -56,6 +58,18 @@ enum CreatureGenerator {
             }
         }
 
+        // Escultor IA: se lanza en paralelo con el recorte local
+        var sculptTask: Task<Data, Error>?
+        if options.mode == .sculptor {
+            if let key = options.anthropicKey {
+                await progress(.remoteRender)
+                let reference = normalized
+                sculptTask = Task { try await SculptorService(apiKey: key).sculpt(photo: reference) }
+            } else {
+                fallbackReason = "Falta la API key de Anthropic: se usó el motor local."
+            }
+        }
+
         await progress(.extracting)
         let resolution = options.textureResolution
         let finalSource = source
@@ -69,7 +83,18 @@ enum CreatureGenerator {
         guard let sprite else { throw GenerationError.unreadableImage }
 
         await progress(.modeling)
-        return GeneratedCreature(photo: normalized, sprite: sprite, usedRemote: usedRemote,
-                                 remoteFallbackReason: fallbackReason)
+        var rig: Data?
+        if let sculptTask {
+            do {
+                rig = try await sculptTask.value
+                usedRemote = true
+            } catch {
+                fallbackReason = error.localizedDescription
+            }
+        }
+        var result = GeneratedCreature(photo: normalized, sprite: sprite, usedRemote: usedRemote,
+                                       remoteFallbackReason: fallbackReason)
+        result.rig = rig
+        return result
     }
 }

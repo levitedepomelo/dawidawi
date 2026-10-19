@@ -11,8 +11,13 @@ final class RetroStage {
     let creatureNode = SCNNode()
     let rarity: Rarity
     private(set) var triangleCount = 0
+    private let rig: CreatureRig?
+    private let photo: UIImage?
 
-    init(sprite: CGImage, rarity: Rarity, seed: Int, meshDensity: Int, showcase: Bool) {
+    init(sprite: CGImage, rarity: Rarity, seed: Int, meshDensity: Int, showcase: Bool,
+         rig: CreatureRig? = nil, photo: UIImage? = nil) {
+        self.rig = rig
+        self.photo = photo
         self.rarity = rarity
         buildEnvironment()
         buildCreature(sprite: sprite, seed: seed, meshDensity: meshDensity)
@@ -65,9 +70,16 @@ final class RetroStage {
         scene.rootNode.addChildNode(turntable)
         turntable.addChildNode(creatureNode)
 
-        // Estilo por defecto: muñeco low-poly por piezas con la cara y el pelaje de la foto.
-        if (UserDefaults.standard.string(forKey: "gen.style") ?? "figure") == "figure",
-           let figure = FigureBuilder.build(sprite: sprite, seed: seed) {
+        // 1) Muñeco diseñado por el escultor IA  2) muñeco automático por piezas  3) silueta inflada
+        let figure: FigureBuilder.Figure?
+        if let rig, let photo, let sculpted = RigBuilder.build(rig: rig, photo: photo) {
+            figure = sculpted
+        } else if (UserDefaults.standard.string(forKey: "gen.style") ?? "figure") == "figure" {
+            figure = FigureBuilder.build(sprite: sprite, seed: seed)
+        } else {
+            figure = nil
+        }
+        if let figure {
             triangleCount = figure.triangleCount
             creatureNode.addChildNode(figure.node)
             let scale = min(1.55 / max(figure.height, 0.01), 2.0 / max(figure.width, 0.01))

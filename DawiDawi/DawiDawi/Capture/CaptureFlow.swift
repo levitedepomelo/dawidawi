@@ -44,7 +44,7 @@ final class CaptureFlow: ObservableObject {
                 self.step = .rollingRarity
                 let rarity = DemoMode.forcedRarity ?? settings.rollRarity()
                 let (creature, stage) = try Self.persist(generated, rarity: rarity, context: context,
-                                                         meshDensity: meshDensity)
+                                                         meshDensity: meshDensity, rigOverride: DemoMode.rigData)
 
                 // Suspense mínimo para que la animación de "procesado" se luzca
                 let elapsed = Date().timeIntervalSince(started)
@@ -71,7 +71,8 @@ final class CaptureFlow: ObservableObject {
     /// Numera, guarda ficheros e inserta la criatura. Devuelve también su escenario 3D de exhibición.
     @discardableResult
     static func persist(_ generated: GeneratedCreature, rarity: Rarity, capturedAt: Date = Date(),
-                        context: ModelContext, meshDensity: Int) throws -> (Creature, RetroStage) {
+                        context: ModelContext, meshDensity: Int,
+                        rigOverride: Data? = nil) throws -> (Creature, RetroStage) {
         let seed = Int.random(in: 1...Int(Int32.max))
         let count = (try? context.fetchCount(FetchDescriptor<Creature>())) ?? 0
         let maxNumber = (try? context.fetch(FetchDescriptor<Creature>(sortBy: [SortDescriptor(\.number, order: .reverse)])).first?.number) ?? 0
@@ -84,13 +85,16 @@ final class CaptureFlow: ObservableObject {
                                 generator: generated.usedRemote ? "remote" : "local",
                                 seed: seed)
 
+        let rigData = generated.rig ?? rigOverride
+        let rig = rigData.flatMap(CreatureRig.decode)
         let stage = RetroStage(sprite: generated.sprite, rarity: rarity, seed: seed,
-                               meshDensity: meshDensity, showcase: true)
+                               meshDensity: meshDensity, showcase: true, rig: rig, photo: generated.photo)
         let thumbStage = RetroStage(sprite: generated.sprite, rarity: rarity, seed: seed,
-                                    meshDensity: meshDensity, showcase: false)
+                                    meshDensity: meshDensity, showcase: false, rig: rig, photo: generated.photo)
         let thumb = thumbStage.snapshot()
 
         try CreatureStore.save(photo: generated.photo, sprite: generated.sprite, thumb: thumb, id: creature.id)
+        if let rigData, rig != nil { try CreatureStore.saveRig(rigData, id: creature.id) }
         context.insert(creature)
         try context.save()
         return (creature, stage)

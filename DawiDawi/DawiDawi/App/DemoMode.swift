@@ -19,6 +19,8 @@ enum DemoMode {
     static var isActive: Bool { scene != nil }
     static let imagePaths: [String] = value("-demoImages")?.split(separator: ",").map(String.init) ?? []
     static let forcedRarity: Rarity? = value("-demoRarity").flatMap(Rarity.init(rawValue:))
+    /// Rig de ejemplo (como el que devolvería el escultor IA) para la primera foto de prueba.
+    static let rigData: Data? = value("-demoRig").flatMap { try? Data(contentsOf: URL(fileURLWithPath: $0)) }
 
     static func image(at index: Int) -> UIImage? {
         guard !imagePaths.isEmpty else { return nil }
@@ -43,7 +45,8 @@ enum DemoMode {
             else { continue }
             let date = calendar.date(byAdding: .day, value: -(seedRarities.count - i), to: Date()) ?? Date()
             guard let (creature, _) = try? CaptureFlow.persist(generated, rarity: rarity, capturedAt: date,
-                                                                context: context, meshDensity: settings.meshDensity)
+                                                                context: context, meshDensity: settings.meshDensity,
+                                                                rigOverride: i % max(1, imagePaths.count) == 0 ? rigData : nil)
             else { continue }
             if !seedNames[i].isEmpty { creature.name = seedNames[i] }
             if i == 0 {

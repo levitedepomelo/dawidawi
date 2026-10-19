@@ -96,7 +96,8 @@ jobs:
           run_scene() { # scene wait-seconds [extra args...]
             local scene=$1 wait=$2; shift 2
             xcrun simctl terminate "$UDID" "$BUNDLE_ID" 2>/dev/null || true
-            xcrun simctl launch "$UDID" "$BUNDLE_ID" -demoScene "$scene" -demoImages "$PHOTOS" "${LOCALE_ARGS[@]}" "$@"
+            xcrun simctl launch "$UDID" "$BUNDLE_ID" -demoScene "$scene" -demoImages "$PHOTOS" \
+              -demoRig "$GITHUB_WORKSPACE/.github/demo/cat-rig.json" "${LOCALE_ARGS[@]}" "$@"
             sleep "$wait"
           }
           shot() { xcrun simctl io "$UDID" screenshot "out/screenshots/$1.png"; }

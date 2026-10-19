@@ -309,8 +309,10 @@ struct CreatureModelView: View {
         }
         .task(id: creatureID) {
             guard let sprite = CreatureStore.sprite(creatureID)?.cgImage else { failed = true; return }
+            let rig = CreatureStore.rig(creatureID)
             stage = RetroStage(sprite: sprite, rarity: rarity, seed: seed,
-                               meshDensity: settings.meshDensity, showcase: showcase)
+                               meshDensity: settings.meshDensity, showcase: showcase,
+                               rig: rig, photo: rig != nil ? CreatureStore.photo(creatureID) : nil)
         }
     }
 }

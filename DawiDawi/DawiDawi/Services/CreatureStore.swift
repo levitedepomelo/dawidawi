@@ -31,6 +31,17 @@ enum CreatureStore {
     static func photoURL(_ id: UUID) -> URL { directory(for: id).appendingPathComponent("photo.jpg") }
     static func spriteURL(_ id: UUID) -> URL { directory(for: id).appendingPathComponent("sprite.png") }
     static func thumbURL(_ id: UUID) -> URL { directory(for: id).appendingPathComponent("thumb.png") }
+    static func rigURL(_ id: UUID) -> URL { directory(for: id).appendingPathComponent("rig.json") }
+
+    static func saveRig(_ data: Data, id: UUID) throws {
+        try data.write(to: rigURL(id), options: .atomic)
+    }
+
+    /// Muñeco del escultor IA guardado para esta criatura (si existe).
+    static func rig(_ id: UUID) -> CreatureRig? {
+        guard let data = try? Data(contentsOf: rigURL(id)) else { return nil }
+        return CreatureRig.decode(data)
+    }
 
     static func save(photo: UIImage, sprite: CGImage, thumb: UIImage?, id: UUID) throws {
         if let data = photo.jpegData(compressionQuality: 0.85) {

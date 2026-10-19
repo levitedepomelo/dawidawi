@@ -8,6 +8,7 @@ struct SettingsView: View {
     @Environment(\.modelContext) var context
     @Query var creatures: [Creature]
     @State var apiKeyDraft = ""
+    @State var anthropicKeyDraft = ""
     @State var confirmWipe = false
     @State var simulation: [Rarity: Int] = [:]
 
@@ -113,7 +114,32 @@ struct SettingsView: View {
             }
             .pickerStyle(.segmented)
 
-            if settings.generationMode == .local {
+            if settings.generationMode == .sculptor {
+                Text("Claude mira tu foto y diseña un muñeco low-poly de piezas (cabeza, hocico, orejas, alas, cola…) con la cara y el pelaje de la propia foto, como un modelo de PS1. No nombra ni clasifica al animal. Si falla o no hay conexión, se usa el muñeco automático local.")
+                    .font(.retro(10, weight: .semibold))
+                    .foregroundStyle(Retro.cream.opacity(0.85))
+                labeledField("API key de Anthropic", trailing: settings.hasAnthropicKey ? "GUARDADA ✓" : "SIN CONFIGURAR") {
+                    SecureField("", text: $anthropicKeyDraft, prompt: Text(settings.hasAnthropicKey ? "•••••••• (pega otra para cambiarla)" : "sk-ant-...").foregroundStyle(Retro.cream.opacity(0.4)))
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                }
+                HStack(spacing: 10) {
+                    Button("GUARDAR KEY") {
+                        settings.setAnthropicKey(anthropicKeyDraft)
+                        anthropicKeyDraft = ""
+                        ChipSynth.shared.play(.save)
+                    }
+                    .buttonStyle(RetroButtonStyle(color: Retro.green, compact: true))
+                    .disabled(anthropicKeyDraft.trimmingCharacters(in: .whitespaces).isEmpty)
+                    if settings.hasAnthropicKey {
+                        Button("BORRAR KEY") { settings.setAnthropicKey("") }
+                            .buttonStyle(RetroButtonStyle(color: Retro.orange, compact: true))
+                    }
+                }
+                Text("Consíguela en console.anthropic.com → API Keys. Se guarda cifrada en el Llavero; la foto solo se envía al capturar en este modo (coste aproximado: céntimos por criatura).")
+                    .font(.retro(9, weight: .semibold))
+                    .foregroundStyle(Retro.cream.opacity(0.6))
+            } else if settings.generationMode == .local {
                 Text("100 % en el iPhone y sin conexión: recorta la silueta del sujeto (Vision), la pixela con paleta de 15 bits y tramado, y la convierte en un modelo 3D low-poly facetado.")
                     .font(.retro(10, weight: .semibold))
                     .foregroundStyle(Retro.cream.opacity(0.7))

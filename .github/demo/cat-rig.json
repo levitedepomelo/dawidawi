@@ -1,0 +1,28 @@
+{
+  "parts": [
+    {"name": "torso", "shape": "box", "center": [0, 0.42, 0], "size": [0.5, 0.6, 0.5], "rotation": [0, 0, 0], "taper": 0.72,
+     "color": "#8C7656", "texture_region": [0.24, 0.39, 0.54, 0.69], "texture_faces": "all", "pivot": [0, 0.42, 0], "animation": "none"},
+    {"name": "left haunch", "shape": "sphere", "center": [-0.2, 0.2, -0.08], "size": [0.32, 0.36, 0.42], "rotation": [0, 0, 0], "taper": 1,
+     "color": "#7A6448", "texture_region": [0.56, 0.5, 0.9, 0.85], "texture_faces": "all", "pivot": [-0.2, 0.2, -0.08], "animation": "none"},
+    {"name": "right haunch", "shape": "sphere", "center": [0.2, 0.2, -0.08], "size": [0.32, 0.36, 0.42], "rotation": [0, 0, 0], "taper": 1,
+     "color": "#7A6448", "texture_region": [0.56, 0.5, 0.9, 0.85], "texture_faces": "all", "pivot": [0.2, 0.2, -0.08], "animation": "none"},
+    {"name": "front left leg", "shape": "cylinder", "center": [-0.1, 0.22, 0.18], "size": [0.11, 0.4, 0.11], "rotation": [0, 0, 0], "taper": 1,
+     "color": "#8C7656", "texture_region": [0.33, 0.67, 0.54, 0.88], "texture_faces": "all", "pivot": [-0.1, 0.42, 0.18], "animation": "step"},
+    {"name": "front right leg", "shape": "cylinder", "center": [0.1, 0.22, 0.18], "size": [0.11, 0.4, 0.11], "rotation": [0, 0, 0], "taper": 1,
+     "color": "#8C7656", "texture_region": [0.33, 0.67, 0.54, 0.88], "texture_faces": "all", "pivot": [0.1, 0.42, 0.18], "animation": "step"},
+    {"name": "front left paw", "shape": "box", "center": [-0.1, 0.03, 0.23], "size": [0.14, 0.06, 0.18], "rotation": [0, 0, 0], "taper": 0.9,
+     "color": "#D8C9AE", "texture_region": [0.35, 0.86, 0.5, 0.92], "texture_faces": "all", "pivot": [-0.1, 0.03, 0.23], "animation": "none"},
+    {"name": "front right paw", "shape": "box", "center": [0.1, 0.03, 0.23], "size": [0.14, 0.06, 0.18], "rotation": [0, 0, 0], "taper": 0.9,
+     "color": "#D8C9AE", "texture_region": [0.35, 0.86, 0.5, 0.92], "texture_faces": "all", "pivot": [0.1, 0.03, 0.23], "animation": "none"},
+    {"name": "head", "shape": "box", "center": [0, 0.97, 0.04], "size": [0.62, 0.5, 0.48], "rotation": [0, 0, 0], "taper": 0.92,
+     "color": "#8C7656", "texture_region": [0.28, 0.19, 0.57, 0.37], "texture_faces": "front", "pivot": [0, 0.72, 0], "animation": "sway"},
+    {"name": "snout", "shape": "wedge", "center": [0, 0.84, 0.31], "size": [0.2, 0.12, 0.08], "rotation": [0, 0, 0], "taper": 1,
+     "color": "#D8C9AE", "texture_region": [0.36, 0.29, 0.46, 0.36], "texture_faces": "front", "pivot": [0, 0.72, 0], "animation": "sway"},
+    {"name": "left ear", "shape": "pyramid", "center": [-0.19, 1.31, 0.02], "size": [0.17, 0.2, 0.07], "rotation": [0, 0, 12], "taper": 1,
+     "color": "#6E5A40", "texture_region": [0.27, 0.12, 0.37, 0.22], "texture_faces": "all", "pivot": [0, 0.72, 0], "animation": "sway"},
+    {"name": "right ear", "shape": "pyramid", "center": [0.19, 1.31, 0.02], "size": [0.17, 0.2, 0.07], "rotation": [0, 0, -12], "taper": 1,
+     "color": "#6E5A40", "texture_region": [0.5, 0.12, 0.58, 0.22], "texture_faces": "all", "pivot": [0, 0.72, 0], "animation": "sway"},
+    {"name": "tail", "shape": "cylinder", "center": [0.32, 0.05, 0.06], "size": [0.07, 0.48, 0.07], "rotation": [0, 30, 90], "taper": 1,
+     "color": "#5E4D38", "texture_region": [0.72, 0.83, 0.91, 0.92], "texture_faces": "all", "pivot": [0.22, 0.06, -0.12], "animation": "wag"}
+  ]
+}

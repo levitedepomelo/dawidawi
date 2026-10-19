@@ -254,7 +254,7 @@ enum FigureBuilder {
 
     // MARK: - Animación idle
 
-    private static func swing(_ node: SCNNode, axis: SCNVector3, amplitude: Float, period: Double, phase: Float) {
+    static func swing(_ node: SCNNode, axis: SCNVector3, amplitude: Float, period: Double, phase: Float) {
         let base = node.eulerAngles
         let action = SCNAction.customAction(duration: period) { n, elapsed in
             let a = amplitude * sin(Float(elapsed / period) * 2 * .pi + phase)

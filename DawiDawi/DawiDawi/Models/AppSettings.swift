@@ -6,12 +6,15 @@ enum GenerationMode: String, CaseIterable, Identifiable {
     case local
     /// Pide a un servicio de IA de imagen un render estilo PS1/N64 y luego lo convierte en modelo 3D local.
     case remote
+    /// Claude diseña un muñeco low-poly de piezas a partir de la foto (texturizado con la propia foto).
+    case sculptor
 
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .local: return "Motor local"
-        case .remote: return "IA remota + local"
+        case .local: return "Local"
+        case .remote: return "IA imagen"
+        case .sculptor: return "Escultor IA"
         }
     }
 }
@@ -20,6 +23,8 @@ enum GenerationMode: String, CaseIterable, Identifiable {
 struct GenerationOptions: Sendable {
     var mode: GenerationMode
     var apiKey: String?
+    var anthropicKey: String?
+    var anthropicKey: String?
     var remoteModel: String
     var remoteEndpoint: String
     var textureResolution: Int
@@ -44,6 +49,8 @@ final class AppSettings: ObservableObject {
     @Published var saveLocation: Bool { didSet { defaults.set(saveLocation, forKey: Keys.location) } }
     @Published var showTitleScreen: Bool { didSet { defaults.set(showTitleScreen, forKey: Keys.title) } }
     @Published private(set) var hasAPIKey: Bool
+    @Published private(set) var hasAnthropicKey: Bool
+    @Published private(set) var hasAnthropicKey: Bool
 
     static let defaultEndpoint = "https://api.openai.com/v1/images/edits"
     static let defaultModel = "gpt-image-1"
@@ -82,6 +89,8 @@ final class AppSettings: ObservableObject {
         saveLocation = d.object(forKey: Keys.location) as? Bool ?? false
         showTitleScreen = d.object(forKey: Keys.title) as? Bool ?? true
         hasAPIKey = Keychain.read(Keychain.apiKeyAccount) != nil
+        hasAnthropicKey = Keychain.read(Keychain.anthropicAccount) != nil
+        hasAnthropicKey = Keychain.read(Keychain.anthropicAccount) != nil
         ChipSynth.shared.enabled = soundEnabled
         Haptics.enabled = hapticsEnabled
     }
@@ -140,9 +149,31 @@ final class AppSettings: ObservableObject {
         hasAPIKey = Keychain.read(Keychain.apiKeyAccount) != nil
     }
 
+    func setAnthropicKey(_ key: String) {
+        let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            Keychain.delete(Keychain.anthropicAccount)
+        } else {
+            Keychain.save(trimmed, account: Keychain.anthropicAccount)
+        }
+        hasAnthropicKey = Keychain.read(Keychain.anthropicAccount) != nil
+    }
+
+    func setAnthropicKey(_ key: String) {
+        let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            Keychain.delete(Keychain.anthropicAccount)
+        } else {
+            Keychain.save(trimmed, account: Keychain.anthropicAccount)
+        }
+        hasAnthropicKey = Keychain.read(Keychain.anthropicAccount) != nil
+    }
+
     var generationOptions: GenerationOptions {
         GenerationOptions(mode: generationMode,
                           apiKey: Keychain.read(Keychain.apiKeyAccount),
+                          anthropicKey: Keychain.read(Keychain.anthropicAccount),
+                          anthropicKey: Keychain.read(Keychain.anthropicAccount),
                           remoteModel: remoteModel,
                           remoteEndpoint: remoteEndpoint,
                           textureResolution: textureResolution,

@@ -4,6 +4,8 @@ import Security
 /// Guarda la API key del servicio remoto en el llavero del iPhone (nunca en UserDefaults).
 enum Keychain {
     static let apiKeyAccount = "dawidawi.remote.apikey"
+    static let anthropicAccount = "dawidawi.anthropic.apikey"
+    static let anthropicAccount = "dawidawi.anthropic.apikey"
     private static let service = "com.dawidawi.app"
 
     static func save(_ value: String, account: String) {
