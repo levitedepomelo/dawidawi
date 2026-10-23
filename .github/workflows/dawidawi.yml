@@ -180,8 +180,7 @@ jobs:
           for f in 00-titulo 01-coleccion 02-ficha-gato-naranja 02-ficha-b 06-revelacion-09 09-retro-gato-naranja small-01-coleccion small-02-ficha small-04-ajustes small-06-revelacion; do
             [ -f "$f.jpg" ] || continue
             sips -Z 640 -s formatOptions 60 "$f.jpg" --out "/tmp/prev-$f.jpg" >/dev/null
-            echo "PREVIEW-BEGIN $f"; base64 -i "/tmp/prev-$f.jpg" | tr -d '
-'; echo; echo "PREVIEW-END $f"
+            echo "PREVIEW-BEGIN $f"; base64 -i "/tmp/prev-$f.jpg" | tr -d '\n'; echo; echo "PREVIEW-END $f"
           done
 
       - name: Collect crash reports and app log
