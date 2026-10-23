@@ -240,10 +240,14 @@ enum FigureBuilder {
         let root = SCNNode()
         var tris = 0
         func add(_ geometry: SCNGeometry, to parent: SCNNode, at position: SCNVector3, pivot: SCNVector3 = SCNVector3(0, 0, 0)) -> SCNNode {
-            let node = SCNNode(geometry: geometry)
+            let node = SCNNode()
             node.position = position
-            // Las primitivas de SceneKit (HD) están centradas; las cajas low-poly apoyan en y = 0
-            node.pivot = SCNMatrix4MakeTranslation(pivot.x, pivot.y - centerLift(geometry), pivot.z)
+            node.pivot = SCNMatrix4MakeTranslation(pivot.x, pivot.y, pivot.z)
+            // La geometría va en un nodo hijo: las primitivas de SceneKit (HD) están centradas y se
+            // suben para apoyar en y = 0 sin desplazar a las piezas hijas (orejas sobre la cabeza…)
+            let mesh = SCNNode(geometry: geometry)
+            mesh.position.y = centerLift(geometry)
+            node.addChildNode(mesh)
             parent.addChildNode(node)
             tris += GraphicsStyle.isRetro ? 12 : 60
             return node
@@ -260,7 +264,7 @@ enum FigureBuilder {
                                materials: [mats.furPhoto, mats.furSide, mats.furDark, mats.furSide, mats.furSide, mats.furDark]),
                            to: root, at: SCNVector3(0, legH, 0))
             // Las caras laterales (±z) muestran el cuerpo de la foto
-            body.geometry?.materials = [mats.furPhoto, mats.furSide, mats.furPhotoBack, mats.furSide, mats.furSide, mats.furDark]
+            body.childNodes.first?.geometry?.materials = [mats.furPhoto, mats.furSide, mats.furPhotoBack, mats.furSide, mats.furSide, mats.furDark]
 
             let legSpots: [(Float, Float)] = [(0.34, 0.12), (0.34, -0.12), (-0.34, 0.12), (-0.34, -0.12)]
             for (i, spot) in legSpots.enumerated() {
@@ -280,7 +284,7 @@ enum FigureBuilder {
             let head = add(box(bottom: [hs, hs * 0.9], top: [hs * 0.9, hs * 0.8], height: hs * 0.95,
                                materials: [mats.face, mats.headFur, mats.faceMirror, mats.headFur, mats.headFur, mats.headFurDark]),
                            to: neck, at: SCNVector3(dir * hs * 0.25, 0, 0))
-            if !headOnRight { head.geometry?.materials = [mats.faceMirror, mats.headFur, mats.face, mats.headFur, mats.headFur, mats.headFurDark] }
+            if !headOnRight { head.childNodes.first?.geometry?.materials = [mats.faceMirror, mats.headFur, mats.face, mats.headFur, mats.headFur, mats.headFurDark] }
             swing(neck, axis: SCNVector3(0, 0, 1), amplitude: 0.06, period: 2.4, phase: 0)
             if hasEars {
                 for ez: Float in [-1, 1] {

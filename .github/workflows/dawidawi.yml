@@ -165,9 +165,9 @@ jobs:
           }
           small_shot() { xcrun simctl io "$SMALL" screenshot "out/screenshots/small-$1.png"; }
           run_small collection 50; small_shot 01-coleccion
-          run_small detail 12 -demoNumber 2; small_shot 02-ficha
-          run_small settings 5;    small_shot 04-ajustes
-          run_small reveal 0 -demoRarity epic; sleep 14; small_shot 06-revelacion
+          run_small detail 30 -demoNumber 2; small_shot 02-ficha
+          run_small settings 25;   small_shot 04-ajustes
+          run_small reveal 0 -demoRarity epic; sleep 35; small_shot 06-revelacion
           xcrun simctl shutdown "$SMALL" || true
 
       - name: Compress screenshots and print previews
