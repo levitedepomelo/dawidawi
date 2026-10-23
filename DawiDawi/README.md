@@ -93,6 +93,10 @@ texturizado con la propia foto, sobre un escenario de cielo y césped:
 Si un motor con IA falla (sin conexión, sin key, error del servicio), **se usa el motor local automáticamente**
 y se avisa en la revelación. Ningún motor nombra ni clasifica al animal: solo se trabaja con formas y colores.
 
+En **Ajustes → Gráficos** eliges **HD** (por defecto: texturas de la foto en alta resolución con
+filtrado suave, bloques con bordes redondeados, extremidades en cápsula, render nativo con antialiasing 4x
+a 60 fps) o **Retro** (texturas pixeladas, bloques duros y render 240p a 30 fps).
+
 En **Ajustes → Estilo del modelo 3D** puedes elegir entre "Muñeco" (bloques, por defecto) y "Silueta"
 (la silueta inflada, más orgánica). Por criatura se guardan `photo.jpg`, `sprite.png`, `thumb.png` y,
 con el escultor, `rig.json`.
@@ -182,7 +186,10 @@ DawiDawi/
 
 ## 9. Notas
 
-- Se compila y se prueba en cada push con GitHub Actions (Xcode 26, simulador de iPhone).
+- Se compila y se prueba en cada push con GitHub Actions (Xcode 26): un iPhone grande y el iPhone más
+  pequeño disponible. El repositorio es público, así que los minutos de Mac de Actions son gratuitos.
+  Los artefactos se guardan 3 días; el vídeo de la revelación solo se graba al lanzar el workflow a mano
+  con la opción *record_video*.
 - Modo demo (solo para CI): argumentos `-demoScene`, `-demoImages`, `-demoRarity` y `-demoRig` (ver `App/DemoMode.swift`).
   La CI renderiza un rig de ejemplo (`.github/demo/cat-rig.json`) para probar el escultor sin API key.
 - Rendimiento: el render 3D va a 30 fps y a ~0,8× de resolución interna, la malla tiene pocos
