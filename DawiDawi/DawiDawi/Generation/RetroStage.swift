@@ -4,7 +4,9 @@ import Metal
 
 /// Escenario 3D retro: suelo de ajedrez, pared de madera, niebla, luz vertex-lit y la criatura en una peana giratoria.
 /// Inspirado en la estética de la imagen de referencia (render PS1/N64).
-final class RetroStage {
+/// `@unchecked Sendable`: se construye una sola vez (a veces en segundo plano) y a partir de ahí solo
+/// la usa el hilo principal y el render de SceneKit.
+final class RetroStage: @unchecked Sendable {
     let scene = SCNScene()
     let cameraNode = SCNNode()
     let turntable = SCNNode()
@@ -38,7 +40,7 @@ final class RetroStage {
         scene.fogEndDistance = 13
 
         let floor = SCNPlane(width: 30, height: 30)
-        let floorMat = Self.pixelMaterial(Self.checkerTexture)
+        let floorMat = Self.pixelMaterial(Self.checkerTexture as Any, crisp: true)
         floorMat.diffuse.wrapS = .repeat
         floorMat.diffuse.wrapT = .repeat
         floorMat.diffuse.contentsTransform = SCNMatrix4MakeScale(30, 30, 1)
@@ -250,25 +252,37 @@ final class RetroStage {
 
     /// Render offscreen a baja resolución → miniatura auténticamente pixelada.
     @MainActor
-    func snapshot(size: CGSize = CGSize(width: 132, height: 160)) -> UIImage? {
+    func snapshot(size: CGSize = GraphicsStyle.isRetro ? CGSize(width: 132, height: 160) : CGSize(width: 264, height: 320)) -> UIImage? {
         guard let device = MTLCreateSystemDefaultDevice() else { return nil }
         let renderer = SCNRenderer(device: device, options: nil)
         renderer.scene = scene
         renderer.pointOfView = cameraNode
         turntable.removeAllActions()
         turntable.eulerAngles.y = 0.35
-        return renderer.snapshot(atTime: 0, with: size, antialiasingMode: .none)
+        return renderer.snapshot(atTime: 0, with: size,
+                                 antialiasingMode: GraphicsStyle.isRetro ? .none : .multisampling4X)
     }
 
     // MARK: Texturas procedurales
 
-    static func pixelMaterial(_ contents: Any) -> SCNMaterial {
+    /// Material texturizado. En estilo Retro (o con `crisp`) usa filtrado "vecino más cercano";
+    /// en HD, filtrado lineal con mipmaps y un brillo especular suave.
+    static func pixelMaterial(_ contents: Any, crisp: Bool = false) -> SCNMaterial {
         let m = SCNMaterial()
         m.diffuse.contents = contents
-        m.diffuse.magnificationFilter = .nearest
-        m.diffuse.minificationFilter = .nearest
-        m.diffuse.mipFilter = .none
-        m.lightingModel = .lambert
+        if crisp || GraphicsStyle.isRetro {
+            m.diffuse.magnificationFilter = .nearest
+            m.diffuse.minificationFilter = .nearest
+            m.diffuse.mipFilter = .none
+            m.lightingModel = .lambert
+        } else {
+            m.diffuse.magnificationFilter = .linear
+            m.diffuse.minificationFilter = .linear
+            m.diffuse.mipFilter = .linear
+            m.lightingModel = .blinn
+            m.specular.contents = UIColor(white: 0.12, alpha: 1)
+            m.shininess = 0.25
+        }
         m.locksAmbientWithDiffuse = true
         return m
     }

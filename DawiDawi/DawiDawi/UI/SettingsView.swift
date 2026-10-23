@@ -4,6 +4,7 @@ import SwiftData
 struct SettingsView: View {
     @EnvironmentObject var settings: AppSettings
     @AppStorage("gen.style") var modelStyle = "figure"
+    @AppStorage(GraphicsStyle.key) var graphicsStyle = "hd"
     @ObservedObject var location = LocationProvider.shared
     @Environment(\.modelContext) var context
     @Query var creatures: [Creature]
@@ -188,6 +189,12 @@ struct SettingsView: View {
                     Text("64px").tag(64)
                     Text("80px").tag(80)
                     Text("112px").tag(112)
+                }
+                .pickerStyle(.segmented)
+                Text("GRÁFICOS").font(.retro(10)).foregroundStyle(Retro.cyan).padding(.top, 4)
+                Picker("Gráficos", selection: $graphicsStyle) {
+                    Text("HD (suave)").tag("hd")
+                    Text("Retro (pixelado)").tag("retro")
                 }
                 .pickerStyle(.segmented)
                 Text("ESTILO DEL MODELO 3D").font(.retro(10)).foregroundStyle(Retro.cyan).padding(.top, 4)

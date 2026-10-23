@@ -3,7 +3,9 @@ import SwiftUI
 import UIKit
 
 /// Cámara nativa con AVFoundation. El permiso se pide solo al abrir el modo captura.
-final class CameraModel: NSObject, ObservableObject {
+/// `@unchecked Sendable`: la sesión y sus entradas solo se tocan en `queue` (cola serie) y las
+/// propiedades publicadas solo en el hilo principal, así que cruzar `self` a esa cola es seguro.
+final class CameraModel: NSObject, ObservableObject, @unchecked Sendable {
     let session = AVCaptureSession()
     private let output = AVCapturePhotoOutput()
     private let queue = DispatchQueue(label: "dawidawi.camera.session")

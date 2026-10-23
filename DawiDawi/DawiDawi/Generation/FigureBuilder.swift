@@ -149,7 +149,7 @@ enum FigureBuilder {
             var r = rect.integral.intersection(bounds)
             if r.width < 2 || r.height < 2 { r = CGRect(x: minX, y: minY, width: bw, height: bh) }
             let piece = image.cropping(to: r) ?? image
-            let scale = min(1, 64 / Double(max(piece.width, piece.height)))
+            let scale = min(1, Double(GraphicsStyle.textureSize) / Double(max(piece.width, piece.height)))
             let tw = max(2, Int(Double(piece.width) * scale)), th = max(2, Int(Double(piece.height) * scale))
             guard let ctx = CGContext(data: nil, width: tw, height: th, bitsPerComponent: 8, bytesPerRow: tw * 4,
                                       space: CGColorSpaceCreateDeviceRGB(),
@@ -242,9 +242,10 @@ enum FigureBuilder {
         func add(_ geometry: SCNGeometry, to parent: SCNNode, at position: SCNVector3, pivot: SCNVector3 = SCNVector3(0, 0, 0)) -> SCNNode {
             let node = SCNNode(geometry: geometry)
             node.position = position
-            node.pivot = SCNMatrix4MakeTranslation(pivot.x, pivot.y, pivot.z)
+            // Las primitivas de SceneKit (HD) están centradas; las cajas low-poly apoyan en y = 0
+            node.pivot = SCNMatrix4MakeTranslation(pivot.x, pivot.y - centerLift(geometry), pivot.z)
             parent.addChildNode(node)
-            tris += 12
+            tris += GraphicsStyle.isRetro ? 12 : 60
             return node
         }
 
@@ -420,6 +421,23 @@ enum FigureBuilder {
     /// Caja (tronco de pirámide) de 12 triángulos con normales planas, base en y = 0.
     /// `bottom`/`top` = (ancho X, fondo Z). Materiales: frente, derecha, detrás, izquierda, arriba, abajo.
     static func box(bottom: SIMD2<Float>, top: SIMD2<Float>, height: Float, materials: [SCNMaterial]) -> SCNGeometry {
+        if !GraphicsStyle.isRetro {
+            // HD: bloque con bordes redondeados, o cápsula para las piezas finas (patas, brazos, cola)
+            let w = CGFloat(max(bottom.x, top.x)), d = CGFloat(max(bottom.y, top.y)), h = CGFloat(height)
+            let thin = min(w, d)
+            if thin < 0.14, h > thin * 1.3 {
+                let capsule = SCNCapsule(capRadius: thin / 2, height: h)
+                capsule.radialSegmentCount = 14
+                capsule.capSegmentCount = 6
+                capsule.heightSegmentCount = 1
+                capsule.materials = [materials.first ?? SCNMaterial()]
+                return capsule
+            }
+            let rounded = SCNBox(width: w, height: h, length: d, chamferRadius: min(w, min(h, d)) * 0.2)
+            rounded.chamferSegmentCount = 3
+            rounded.materials = materials
+            return rounded
+        }
         let bx = bottom.x / 2, bz = bottom.y / 2, tx = top.x / 2, tz = top.y / 2, h = height
         func v(_ x: Float, _ y: Float, _ z: Float) -> simd_float3 { simd_float3(x, y, z) }
         var faces: [[simd_float3]] = []
@@ -449,6 +467,13 @@ enum FigureBuilder {
                                    elements: elements)
         geometry.materials = materials
         return geometry
+    }
+
+    /// Desplazamiento para apoyar en y = 0 una primitiva centrada de SceneKit.
+    static func centerLift(_ geometry: SCNGeometry) -> Float {
+        if let b = geometry as? SCNBox { return Float(b.height) / 2 }
+        if let c = geometry as? SCNCapsule { return Float(c.height) / 2 }
+        return 0
     }
 
     /// Pirámide de base rectangular (orejas), base en y = 0.

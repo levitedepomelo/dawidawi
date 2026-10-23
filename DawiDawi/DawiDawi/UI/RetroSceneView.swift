@@ -19,9 +19,13 @@ final class PixelSCNView: SCNView {
     }
 
     private func applyPixelScale() {
-        if abs(contentScaleFactor - pixelScale) > 0.001 { contentScaleFactor = pixelScale }
-        layer.magnificationFilter = .nearest
-        layer.minificationFilter = .nearest
+        let retro = GraphicsStyle.isRetro
+        let target = retro ? pixelScale : traitCollection.displayScale
+        if abs(contentScaleFactor - target) > 0.001 { contentScaleFactor = target }
+        layer.magnificationFilter = retro ? .nearest : .linear
+        layer.minificationFilter = retro ? .nearest : .linear
+        antialiasingMode = retro ? .none : .multisampling4X
+        preferredFramesPerSecond = retro ? 30 : 60
     }
 }
 
@@ -39,8 +43,7 @@ struct RetroSceneView: UIViewRepresentable {
         view.scene = stage.scene
         view.pointOfView = stage.cameraNode
         view.backgroundColor = UIColor(red: 0.55, green: 0.82, blue: 0.98, alpha: 1)
-        view.antialiasingMode = .none
-        view.preferredFramesPerSecond = 30 // 30 fps: auténtico y ahorra batería
+        // Antialiasing y fps según el estilo gráfico (ver PixelSCNView.applyPixelScale)
         view.rendersContinuously = true
         view.isPlaying = true
         view.allowsCameraControl = false

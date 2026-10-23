@@ -128,7 +128,39 @@ jobs:
           for t in 4 8 12 16; do sleep 4; shot "07-mitico-$t"; done
 
           run_scene collection 6;  shot 08-coleccion-final
+          # Mismo gato con el estilo gráfico "Retro" (pixelado) para comparar con HD
+          run_scene detail 12 -demoNumber 2 -gfx.style retro; shot 09-retro-gato-naranja
           ls -la out/screenshots
+
+      - name: Small iPhone (compatibility screenshots)
+        run: |
+          SMALL=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          d = json.load(sys.stdin)["devices"]
+          rts = sorted((k for k in d if "iOS" in k), key=lambda k: [int(x) for x in k.split("iOS-")[-1].split("-") if x.isdigit()])
+          phones = [x for rt in reversed(rts) for x in d[rt] if x["name"].startswith("iPhone")]
+          def rank(x):
+              n = x["name"]
+              return 0 if "SE" in n else 1 if "mini" in n else 2 if n.rstrip().endswith("e") else 3
+          pick = sorted(phones, key=rank)[0]
+          print(pick["udid"]); print("small device:", pick["name"], file=sys.stderr)')
+          xcrun simctl boot "$SMALL"
+          xcrun simctl bootstatus "$SMALL" -b
+          xcrun simctl install "$SMALL" build/sim/Build/Products/Release-iphonesimulator/DawiDawi.app
+          xcrun simctl privacy "$SMALL" grant camera "$BUNDLE_ID" || true
+          LOCALE_ARGS=(-AppleLanguages "(es)" -AppleLocale es_ES)
+          run_small() {
+            local scene=$1 wait=$2; shift 2
+            xcrun simctl terminate "$SMALL" "$BUNDLE_ID" 2>/dev/null || true
+            xcrun simctl launch "$SMALL" "$BUNDLE_ID" -demoScene "$scene" -demoImages "$PHOTOS"               -demoRig "$GITHUB_WORKSPACE/.github/demo/cat-rig.json" "${LOCALE_ARGS[@]}" "$@"
+            sleep "$wait"
+          }
+          small_shot() { xcrun simctl io "$SMALL" screenshot "out/screenshots/small-$1.png"; }
+          run_small collection 50; small_shot 01-coleccion
+          run_small detail 12 -demoNumber 2; small_shot 02-ficha
+          run_small settings 5;    small_shot 04-ajustes
+          run_small reveal 0 -demoRarity epic; sleep 14; small_shot 06-revelacion
+          xcrun simctl shutdown "$SMALL" || true
 
       - name: Collect crash reports and app log
         if: always()

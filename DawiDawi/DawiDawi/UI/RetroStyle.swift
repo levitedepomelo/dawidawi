@@ -462,7 +462,7 @@ struct PixelImage: View {
     var contentMode: ContentMode = .fit
     var body: some View {
         Image(uiImage: image)
-            .interpolation(.none)
+            .interpolation(GraphicsStyle.isRetro ? .none : .high)
             .resizable()
             .aspectRatio(contentMode: contentMode)
     }

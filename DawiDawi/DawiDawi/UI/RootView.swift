@@ -308,12 +308,19 @@ struct CreatureModelView: View {
             }
         }
         .task(id: creatureID) {
-            guard let sprite = CreatureStore.sprite(creatureID)?.cgImage else { failed = true; return }
-            let rig = CreatureStore.rig(creatureID)
-            stage = RetroStage(sprite: sprite, rarity: rarity, seed: seed,
-                               meshDensity: settings.meshDensity, showcase: showcase,
-                               rig: rig, photo: rig != nil ? CreatureStore.photo(creatureID) : nil,
-                               cutout: CreatureStore.cutout(creatureID), face: CreatureStore.face(creatureID))
+            // Lectura de ficheros y construcción del modelo fuera del hilo principal (sin tirones al abrir)
+            let id = creatureID, rarity = rarity, seed = seed, showcase = showcase
+            let meshDensity = settings.meshDensity
+            let built = await Task.detached(priority: .userInitiated) { () -> RetroStage? in
+                guard let sprite = CreatureStore.sprite(id)?.cgImage else { return nil }
+                let rig = CreatureStore.rig(id)
+                return RetroStage(sprite: sprite, rarity: rarity, seed: seed,
+                                  meshDensity: meshDensity, showcase: showcase,
+                                  rig: rig, photo: rig != nil ? CreatureStore.photo(id) : nil,
+                                  cutout: CreatureStore.cutout(id), face: CreatureStore.face(id))
+            }.value
+            guard !Task.isCancelled else { return }
+            if let built { stage = built } else { failed = true }
         }
     }
 }

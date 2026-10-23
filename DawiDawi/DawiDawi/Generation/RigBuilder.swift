@@ -44,7 +44,7 @@ enum RigBuilder {
                 geoNode.geometry = FigureBuilder.box(bottom: [size[0], size[2]], top: [size[0] * taper, topDepth],
                                                      height: size[1],
                                                      materials: [front, other, other, other, other, other])
-                geoNode.position.y = -size[1] / 2
+                if let g = geoNode.geometry { geoNode.position.y = FigureBuilder.centerLift(g) - size[1] / 2 }
                 tris += 12
             case "pyramid":
                 geoNode.geometry = FigureBuilder.pyramid(width: size[0], height: size[1], depth: size[2], material: front)
@@ -54,11 +54,11 @@ enum RigBuilder {
                 let geometry: SCNGeometry
                 if part.shape == "cone" {
                     let cone = SCNCone(topRadius: CGFloat(0.5 * min(taper, 0.9)), bottomRadius: 0.5, height: 1)
-                    cone.radialSegmentCount = 7
+                    cone.radialSegmentCount = GraphicsStyle.isRetro ? 7 : 16
                     geometry = cone
                 } else {
                     let cylinder = SCNCylinder(radius: 0.5, height: 1)
-                    cylinder.radialSegmentCount = 7
+                    cylinder.radialSegmentCount = GraphicsStyle.isRetro ? 7 : 16
                     geometry = cylinder
                 }
                 geometry.materials = [other, colorMat, colorMat]
@@ -67,8 +67,8 @@ enum RigBuilder {
                 tris += 28
             default: // sphere
                 let sphere = SCNSphere(radius: 0.5)
-                sphere.isGeodesic = true
-                sphere.segmentCount = 2
+                sphere.isGeodesic = GraphicsStyle.isRetro
+                sphere.segmentCount = GraphicsStyle.isRetro ? 2 : 20
                 sphere.materials = [front]
                 geoNode.geometry = sphere
                 geoNode.scale = SCNVector3(size[0], size[1], size[2])
@@ -120,12 +120,12 @@ enum RigBuilder {
         let rect = CGRect(x: x0 * Double(cg.width), y: y0 * Double(cg.height),
                           width: (x1 - x0) * Double(cg.width), height: (y1 - y0) * Double(cg.height)).integral
         guard let piece = cg.cropping(to: rect) else { return nil }
-        let scale = min(1, 40 / Double(max(piece.width, piece.height)))
+        let scale = min(1, (GraphicsStyle.isRetro ? 40 : 160) / Double(max(piece.width, piece.height)))
         let w = max(2, Int(Double(piece.width) * scale)), h = max(2, Int(Double(piece.height) * scale))
         guard let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
                                   space: CGColorSpaceCreateDeviceRGB(),
                                   bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return piece }
-        ctx.interpolationQuality = .medium
+        ctx.interpolationQuality = .high
         ctx.draw(piece, in: CGRect(x: 0, y: 0, width: w, height: h))
         return ctx.makeImage() ?? piece
     }

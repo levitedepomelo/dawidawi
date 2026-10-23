@@ -64,7 +64,7 @@ struct CreatureDetailView: View {
         } message: {
             Text("Se borrará de tu colección junto con su foto y su modelo. No se puede deshacer.")
         }
-        .task(id: creature.name) { shareImage = await renderShareCard() }
+        .task(id: creature.name) { shareImage = renderShareCard() }
     }
 
     // MARK: Visor
